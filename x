@@ -1,372 +1,177 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/sh
+set -eu
 
-###======================= USER VARS (EDIT ME) ================================
-DISK="/dev/nvme0n1"            # e.g. /dev/sda or /dev/nvme0n1 (NO trailing slash)
-HOSTNAME="alpine"
-TIMEZONE="America/New_York"                 # e.g. America/New_York
-KEYMAP="us"
-ROOT_PASSWORD="********"
-NEW_USER="dev"              # "" to skip
-NEW_USER_PASSWORD="********"
-NEW_USER_SUDO="yes"            # yes|no
+# =========================
+# CONFIG (adjust as needed)
+# =========================
+DISK="/dev/sda"                # e.g. /dev/sda or /dev/nvme0n1
+ESP_SIZE_MIB=512               # EFI System Partition size
+VG_NAME="vg0"                  # LVM VG name
+LV_ROOT_SIZE="30G"             # root LV size
+LV_VAR_SIZE="15G"              # /var LV size
+LV_LOG_SIZE="4G"               # /var/log LV size
+SWAP_SIZE="auto"               # "auto" or like "4G"
+FS_LABEL_ROOT="alpine_root"
+FS_LABEL_VAR="alpine_var"
+FS_LABEL_LOG="alpine_log"
+FS_LABEL_HOME="alpine_home"
+ESP_LABEL="EFI"
 
-# Networking (simple DHCP; tune if needed)
-NET_IFACE="eth0"
-USE_DHCP="no"                 # yes|no
-STATIC_IP="192.168.88.227"
-STATIC_GW="192.168.88.1"
-STATIC_DNS="192.168.88.1"
+# LUKS parameters (hardened but practical)
+LUKS_NAME="cryptroot"
+LUKS_CIPHER="aes-xts-plain64"
+LUKS_KEY_SIZE="512"            # 512-bit XTS (256-bit key * 2)
+LUKS_PBKDF="argon2id"
+LUKS_ITER_MS="5000"            # ~5s derivation on installer HW
+LUKS_SLOT="0"
 
-# APK mirrors
-APK_REPO="https://dl-cdn.alpinelinux.org/alpine/latest-stable/main"
-APK_REPO_COMMUNITY="https://dl-cdn.alpinelinux.org/alpine/latest-stable/community"
+# =========================
+# sanity checks
+# =========================
+need() { command -v "$1" >/dev/null 2>&1 || { echo "Missing: $1"; exit 1; }; }
+for bin in parted sgdisk cryptsetup pvcreate vgcreate lvcreate mkfs.vfat mkfs.ext4 mkswap lsblk; do need "$bin"; done
+[ -b "$DISK" ] || { echo "ERROR: $DISK is not a block device"; exit 1; }
 
-# Partition sizes
-EFI_SIZE="512MiB"
-BOOT_SIZE="1GiB"
-
-# LVM sizes (leave some free VG for growth if you can)
-LV_ROOT_SIZE="50G"
-LV_HOME_SIZE="20G"
-LV_VAR_SIZE="20G"
-LV_VAR_LOG_SIZE="20G"
-LV_VAR_LOG_AUDIT_SIZE="20G"
-LV_TMP_SIZE="10G"
-LV_VAR_TMP_SIZE="10G"
-LV_SWAP_SIZE=""                # e.g. "4G" or leave empty for none
-
-# Filesystems
-FS_BOOT="ext4"
-FS_DATA="ext4"
-
-# SSH
-ENABLE_SSH="no"               # yes|no
-PERMIT_ROOT_SSH="no"           # yes|no
-AUTHORIZED_KEY=""              # optional: ssh-ed25519 AAAA...
-
-###===================== DERIVED / CONSTANTS =================================
-DISK="${DISK%/}"               # strip trailing slash, just in case
-
-# NVMe/mmc need pN partition names
 case "$DISK" in
-  *nvme*|*mmcblk*) PART_PREFIX="${DISK}p" ;;
-  *)               PART_PREFIX="${DISK}"  ;;
+  /dev/nvme*) P1="${DISK}p1"; P2="${DISK}p2" ;;
+  *)          P1="${DISK}1";  P2="${DISK}2"  ;;
 esac
-P1="${PART_PREFIX}1"    # EFI (or BIOS-boot slice)
-P2="${PART_PREFIX}2"    # /boot
-P3="${PART_PREFIX}3"    # LUKS PV
 
-MNT="/mnt"
-VG="vg0"
-MAP="luks_main"
+echo ">>> THIS WILL WIPE $DISK. Type YES to continue:"
+read -r CONFIRM
+[ "$CONFIRM" = "YES" ] || { echo "Aborted."; exit 1; }
 
-# Mount options
-TMP_OPTS="defaults,nodev,nosuid,noexec"
-VAR_TMP_OPTS="defaults,nodev,nosuid,noexec"
-VAR_OPTS="defaults"
-VAR_LOG_OPTS="defaults,nodev,nosuid,noexec"
-VAR_LOG_AUDIT_OPTS="defaults,nodev,nosuid,noexec"
-HOME_OPTS="defaults,nodev,nosuid"
-ROOT_OPTS="defaults"
-BOOT_OPTS="defaults"
-EFI_OPTS="defaults"
+# =========================
+# partition
+# =========================
+echo "[*] Wiping partition table on $DISK..."
+wipefs -a "$DISK" || true
+sgdisk --zap-all "$DISK"
 
-###===================== HELPERS =============================================
-need() { command -v "$1" >/dev/null 2>&1 || apk add --no-progress "$1"; }
-wait_block() {
-  local dev="$1" tries="${2:-50}"
-  for i in $(seq 1 "$tries"); do
-    [ -b "$dev" ] && return 0
-    sleep 0.2
-  done
-  echo "ERROR: Block device $dev not found." >&2
-  lsblk || true
-  exit 1
+echo "[*] Creating GPT..."
+parted -s "$DISK" mklabel gpt
+
+echo "[*] Creating ESP ${ESP_SIZE_MIB}MiB and LUKS partition..."
+parted -s "$DISK" \
+  mkpart ESP fat32 1MiB "$((ESP_SIZE_MIB+1))MiB" \
+  set 1 esp on \
+  mkpart cryptroot "$((ESP_SIZE_MIB+1))MiB" 100%
+
+parted "$DISK" print
+
+# =========================
+# LUKS
+# =========================
+echo "[*] Formatting LUKS2 on $P2 (you will be prompted for passphrase)..."
+cryptsetup luksFormat \
+  --type luks2 \
+  --cipher "$LUKS_CIPHER" \
+  --key-size "$LUKS_KEY_SIZE" \
+  --pbkdf "$LUKS_PBKDF" \
+  --iter-time "$LUKS_ITER_MS" \
+  --use-random \
+  "$P2"
+
+echo "[*] Opening LUKS container as $LUKS_NAME..."
+cryptsetup open "$P2" "$LUKS_NAME"
+
+MAPPER="/dev/mapper/$LUKS_NAME"
+
+# =========================
+# LVM
+# =========================
+echo "[*] Initializing LVM on $MAPPER..."
+pvcreate "$MAPPER"
+vgcreate "$VG_NAME" "$MAPPER"
+
+# Auto swap sizing based on RAM (min 2G, max 16G, ~1.0x RAM up to 16G)
+calc_swap() {
+  mem_kb=$(awk '/MemTotal:/ {print $2}' /proc/meminfo)
+  mem_g=$(( (mem_kb + 1048575) / 1048576 ))    # round up
+  [ $mem_g -lt 2 ] && mem_g=2
+  [ $mem_g -gt 16 ] && mem_g=16
+  echo "${mem_g}G"
 }
-settle() { partprobe "$DISK" || true; udevadm settle 2>/dev/null || true; sleep 1; }
 
-###===================== SAFETY & PRECHECKS ==================================
-echo ">>> This will WIPE ${DISK}. Type YES to proceed."
-read -r CONFIRM; [ "${CONFIRM:-}" = "YES" ] || { echo "Aborting."; exit 1; }
-
-need sgdisk; need cryptsetup; need lvm2; need e2fsprogs; need dosfstools; need curl || true
-need alpine-conf || true
-
-# Boot mode
-if [ -d /sys/firmware/efi/efivars ]; then BOOT_MODE="uefi"; else BOOT_MODE="bios"; fi
-echo ">>> Detected boot mode: ${BOOT_MODE}"
-
-###===================== NETWORK (for packages) ===============================
-if [ "${USE_DHCP}" = "yes" ]; then
-  ip link set "$NET_IFACE" up 2>/dev/null || true
-  udhcpc -i "$NET_IFACE" -q -s /usr/share/udhcpc/default.script 2>/dev/null || true
+if [ "$SWAP_SIZE" = "auto" ]; then
+  SWAP_SIZE="$(calc_swap)"
 fi
+echo "[*] Using swap size: $SWAP_SIZE"
 
-###===================== PARTITION (GPT both modes) ==========================
-echo ">>> Zapping and partitioning ${DISK}"
-sgdisk --zap-all "${DISK}"
-sgdisk -o "${DISK}"
+echo "[*] Creating LVs..."
+lvcreate -L "$LV_ROOT_SIZE" -n root "$VG_NAME"
+lvcreate -L "$LV_VAR_SIZE"  -n var  "$VG_NAME"
+lvcreate -L "$LV_LOG_SIZE"  -n log  "$VG_NAME"
+lvcreate -L "$SWAP_SIZE"    -n swap "$VG_NAME"
+# Home gets the rest
+lvcreate -l 100%FREE -n home "$VG_NAME"
 
-if [ "${BOOT_MODE}" = "uefi" ]; then
-  sgdisk -n 1:0:+"${EFI_SIZE}"  -t 1:ef00 -c 1:"EFI System" "${DISK}"
-else
-  sgdisk -n 1:0:+1MiB -t 1:ef02 -c 1:"BIOS boot" "${DISK}"
-fi
-sgdisk -n 2:0:+"${BOOT_SIZE}" -t 2:8300 -c 2:"boot"       "${DISK}"
-sgdisk -n 3:0:0               -t 3:8300 -c 3:"cryptlvm"   "${DISK}"
+# =========================
+# filesystems
+# =========================
+echo "[*] Making filesystems..."
+mkfs.vfat -F32 -n "$ESP_LABEL" "$P1"
 
-settle
-wait_block "$P2"; wait_block "$P3"; [ "$BOOT_MODE" = "uefi" ] && wait_block "$P1" || true
+mkfs.ext4 -L "$FS_LABEL_ROOT" "/dev/${VG_NAME}/root"
+mkfs.ext4 -L "$FS_LABEL_VAR"  "/dev/${VG_NAME}/var"
+mkfs.ext4 -L "$FS_LABEL_LOG"  "/dev/${VG_NAME}/log"
+mkfs.ext4 -L "$FS_LABEL_HOME" "/dev/${VG_NAME}/home"
 
-###===================== FORMAT UNENCRYPTED ==================================
-echo ">>> Formatting EFI/BIOS and /boot"
-[ "${BOOT_MODE}" = "uefi" ] && mkfs.vfat -F32 -n EFI "$P1"
-mkfs."${FS_BOOT}" -F -L BOOT "$P2"
+mkswap "/dev/${VG_NAME}/swap"
 
-###===================== LUKS + LVM ==========================================
-echo ">>> Creating LUKS on $P3"
-cryptsetup luksFormat "$P3"
-cryptsetup open "$P3" "$MAP"
-wait_block "/dev/mapper/${MAP}"
+# =========================
+# mount
+# =========================
+echo "[*] Mounting target at /mnt..."
+mount "/dev/${VG_NAME}/root" /mnt
+mkdir -p /mnt/{boot,home,var/log}
+mount "$P1" /mnt/boot
+mount "/dev/${VG_NAME}/var"  /mnt/var
+mount "/dev/${VG_NAME}/log"  /mnt/var/log
+mount "/dev/${VG_NAME}/home" /mnt/home
+swapon "/dev/${VG_NAME}/swap"
 
-pvcreate "/dev/mapper/${MAP}"
-vgcreate "${VG}" "/dev/mapper/${MAP}"
+# =========================
+# fstab + crypttab templates (helpful scaffolding)
+# =========================
+mkdir -p /mnt/etc
+ROOT_UUID=$(blkid -s UUID -o value "/dev/${VG_NAME}/root")
+VAR_UUID=$(blkid -s UUID -o value "/dev/${VG_NAME}/var")
+LOG_UUID=$(blkid -s UUID -o value "/dev/${VG_NAME}/log")
+HOME_UUID=$(blkid -s UUID -o value "/dev/${VG_NAME}/home")
+ESP_UUID=$(blkid -s UUID -o value "$P1")
+SWAP_UUID=$(blkid -s UUID -o value "/dev/${VG_NAME}/swap")
 
-lvcreate -L "${LV_ROOT_SIZE}"          -n root            "${VG}"
-lvcreate -L "${LV_HOME_SIZE}"          -n home            "${VG}"
-lvcreate -L "${LV_VAR_SIZE}"           -n var             "${VG}"
-lvcreate -L "${LV_VAR_LOG_SIZE}"       -n var_log         "${VG}"
-lvcreate -L "${LV_VAR_LOG_AUDIT_SIZE}" -n var_log_audit   "${VG}"
-lvcreate -L "${LV_TMP_SIZE}"           -n tmp             "${VG}"
-lvcreate -L "${LV_VAR_TMP_SIZE}"       -n var_tmp         "${VG}"
-[ -n "${LV_SWAP_SIZE}" ] && lvcreate -L "${LV_SWAP_SIZE}" -n swap "${VG}" || true
-
-mkfs."${FS_DATA}" -F -L ROOT          "/dev/${VG}/root"
-mkfs."${FS_DATA}" -F -L HOME          "/dev/${VG}/home"
-mkfs."${FS_DATA}" -F -L VAR           "/dev/${VG}/var"
-mkfs."${FS_DATA}" -F -L VAR_LOG       "/dev/${VG}/var_log"
-mkfs."${FS_DATA}" -F -L VAR_LOG_AUDIT "/dev/${VG}/var_log_audit"
-mkfs."${FS_DATA}" -F -L TMP           "/dev/${VG}/tmp"
-mkfs."${FS_DATA}" -F -L VARTMP        "/dev/${VG}/var_tmp"
-[ -n "${LV_SWAP_SIZE}" ] && mkswap -L SWAP "/dev/${VG}/swap" || true
-
-###===================== MOUNT TARGET =========================================
-mount "/dev/${VG}/root" "${MNT}"
-mkdir -p "${MNT}/boot" "${MNT}/home" "${MNT}/var" "${MNT}/tmp" \
-         "${MNT}/var/tmp" "${MNT}/var/log" "${MNT}/var/log/audit"
-mount "$P2" "${MNT}/boot"
-if [ "${BOOT_MODE}" = "uefi" ]; then
-  mkdir -p "${MNT}/boot/efi"
-  mount "$P1" "${MNT}/boot/efi"
-fi
-mount "/dev/${VG}/home"           "${MNT}/home"
-mount "/dev/${VG}/var"            "${MNT}/var"
-mount "/dev/${VG}/var_log"        "${MNT}/var/log"
-mount "/dev/${VG}/var_log_audit"  "${MNT}/var/log/audit"
-mount "/dev/${VG}/tmp"            "${MNT}/tmp"
-mount "/dev/${VG}/var_tmp"        "${MNT}/var/tmp"
-[ -n "${LV_SWAP_SIZE}" ] && swapon "/dev/${VG}/swap" || true
-
-###===================== PRE-SEED CONFIGS =====================================
-mkdir -p "${MNT}/etc/apk" "${MNT}/etc/conf.d" "${MNT}/etc/network"
-cat > "${MNT}/etc/apk/repositories" <<EOF
-${APK_REPO}
-${APK_REPO_COMMUNITY}
+cat > /mnt/etc/fstab <<EOF
+# /etc/fstab - generated scaffold (review after setup-disk)
+UUID=$ROOT_UUID  /          ext4  defaults,relatime                         0 1
+UUID=$ESP_UUID   /boot      vfat  defaults,umask=0077                       0 2
+UUID=$VAR_UUID   /var       ext4  nodev,nosuid,relatime                      0 2
+UUID=$LOG_UUID   /var/log   ext4  noexec,nodev,nosuid,relatime               0 2
+UUID=$HOME_UUID  /home      ext4  nodev,nosuid,relatime                      0 2
+UUID=$SWAP_UUID  none       swap  sw                                         0 0
+tmpfs            /tmp       tmpfs defaults,noexec,nodev,nosuid,mode=1777,size=2g 0 0
 EOF
 
-# luks auto-open
-cat > "${MNT}/etc/luks-open.conf" <<EOF
-luks_main ${P3}
+cat > /mnt/etc/crypttab <<EOF
+# /etc/crypttab - unlock root LUKS at boot
+$LUKS_NAME UUID=$(blkid -s UUID -o value "$P2") none luks,discard
 EOF
-
-# fstab with hardened options
-cat > "${MNT}/etc/fstab" <<EOF
-# <fs>                         <mount>           <type>   <opts>                      <dump> <pass>
-/dev/mapper/${VG}-root         /                 ${FS_DATA}  ${ROOT_OPTS}              0 1
-${P2}                          /boot             ${FS_BOOT}  ${BOOT_OPTS}              0 2
-$( [ "${BOOT_MODE}" = "uefi" ] && echo "${P1}                          /boot/efi         vfat      ${EFI_OPTS}                 0 2" )
-/dev/mapper/${VG}-home         /home             ${FS_DATA}  ${HOME_OPTS}              0 2
-/dev/mapper/${VG}-var          /var              ${FS_DATA}  ${VAR_OPTS}               0 2
-/dev/mapper/${VG}-var_log      /var/log          ${FS_DATA}  ${VAR_LOG_OPTS}           0 2
-/dev/mapper/${VG}-var_log_audit /var/log/audit   ${FS_DATA}  ${VAR_LOG_AUDIT_OPTS}     0 2
-/dev/mapper/${VG}-tmp          /tmp              ${FS_DATA}  ${TMP_OPTS}               0 2
-/dev/mapper/${VG}-var_tmp      /var/tmp          ${FS_DATA}  ${VAR_TMP_OPTS}           0 2
-$( [ -n "${LV_SWAP_SIZE}" ] && echo "/dev/mapper/${VG}-swap          none              swap      defaults                  0 0" )
-EOF
-
-# identity / locale
-echo "${HOSTNAME}" > "${MNT}/etc/hostname"
-echo "${TIMEZONE}" > "${MNT}/etc/timezone"
-cat > "${MNT}/etc/conf.d/keymaps" <<EOF
-keymap="${KEYMAP}"
-EOF
-
-# simple networking
-if [ "${USE_DHCP}" = "yes" ]; then
-  cat > "${MNT}/etc/network/interfaces" <<EOF
-auto lo
-iface lo inet loopback
-
-auto ${NET_IFACE}
-iface ${NET_IFACE} inet dhcp
-EOF
-else
-  cat > "${MNT}/etc/network/interfaces" <<EOF
-auto lo
-iface lo inet loopback
-
-auto ${NET_IFACE}
-iface ${NET_IFACE} inet static
-    address ${STATIC_IP}
-    gateway ${STATIC_GW}
-    dns ${STATIC_DNS}
-EOF
-fi
-
-###===================== INSTALL BASE SYSTEM ==================================
-apk add --no-progress alpine-conf
-setup-disk -m sys "${MNT}"
-
-###===================== CHROOT CONFIG ========================================
-mount -t proc none "${MNT}/proc"
-mount -t sysfs none "${MNT}/sys"
-mount -o bind /dev "${MNT}/dev"
-mount -o bind /run "${MNT}/run"
-
-cat > "${MNT}/root/post-chroot.sh" <<'EOS'
-set -euo pipefail
-apk update
-apk add cryptsetup lvm2 mkinitfs e2fsprogs openrc busybox-initscripts
-apk add grub grub-efi efibootmgr || true
-apk add openssh doas sudo tzdata || true
-apk add audit || true   # auditd
-
-# timezone
-setup-timezone -z "$(cat /etc/timezone 2>/dev/null || echo UTC)" || true
-
-# initramfs features
-if grep -q '^features=' /etc/mkinitfs/mkinitfs.conf 2>/dev/null; then
-  sed -i 's/^features=.*/features="base cryptsetup lvm"/' /etc/mkinitfs/mkinitfs.conf
-else
-  echo 'features="base cryptsetup lvm"' > /etc/mkinitfs/mkinitfs.conf
-fi
-mkinitfs
-
-# ensure audit log dir perms
-install -d -m 0700 /var/log/audit
-
-# kernel cmdline: enable early auditing
-if [ -f /etc/default/grub ]; then
-  if grep -q '^GRUB_CMDLINE_LINUX=' /etc/default/grub; then
-    sed -i 's/^GRUB_CMDLINE_LINUX="\([^"]*\)"/GRUB_CMDLINE_LINUX="\1 audit=1"/' /etc/default/grub
-  else
-    echo 'GRUB_CMDLINE_LINUX="audit=1"' >> /etc/default/grub
-  fi
-fi
-
-# passwords & users
-if [ -f /root/.rootpw ]; then
-  echo "root:$(cat /root/.rootpw)" | chpasswd
-  rm -f /root/.rootpw
-fi
-if [ -f /root/.newuser ]; then
-  u="$(cut -d: -f1 /root/.newuser)"; p="$(cut -d: -f2- /root/.newuser)"
-  adduser -D -G wheel "$u"
-  echo "${u}:${p}" | chpasswd
-  rm -f /root/.newuser
-fi
-
-# sudo/doas
-if command -v doas >/dev/null 2>&1; then
-  mkdir -p /etc/doas.d
-  echo 'permit persist :wheel' > /etc/doas.d/wheel.conf
-else
-  sed -i 's/^# \(%wheel ALL=(ALL:ALL) ALL\)/\1/' /etc/sudoers
-fi
-
-# SSH
-rc-update add networking boot || true
-rc-update add sshd default || true
-rc-update add crond default || true
-if [ -f /etc/ssh/sshd_config ]; then
-  sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
-  sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
-fi
-
-# SSH keys
-if [ -f /root/.authkey ]; then
-  mkdir -p /root/.ssh && chmod 700 /root/.ssh
-  cat /root/.authkey >> /root/.ssh/authorized_keys
-  chmod 600 /root/.ssh/authorized_keys
-  sed -i 's/^PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
-fi
-if [ -f /home/.userauth ]; then
-  u="$(cut -d: -f1 /home/.userauth)"
-  mkdir -p "/home/${u}/.ssh" && chmod 700 "/home/${u}/.ssh"
-  sed -e "s/^${u}://" /home/.userauth >> "/home/${u}/.ssh/authorized_keys"
-  chmod 600 "/home/${u}/.ssh/authorized_keys"
-  chown -R "${u}:${u}" "/home/${u}/.ssh"
-  rm -f /home/.userauth
-fi
-
-# Bootloader
-if [ -d /sys/firmware/efi/efivars ]; then
-  grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=alpine
-else
-  TARGET_DISK="$(lsblk -no pkname / | head -n1)"
-  [ -z "$TARGET_DISK" ] && TARGET_DISK="$(lsblk -ndo pkname /dev/mapper/$(ls /dev/mapper | grep -m1 -E 'vg0-root|luks_main') 2>/dev/null | head -n1)"
-  [ -n "$TARGET_DISK" ] && grub-install --target=i386-pc "/dev/${TARGET_DISK}" || grub-install --target=i386-pc /dev/sda
-fi
-grub-mkconfig -o /boot/grub/grub.cfg
-
-# services
-rc-update add hwclock boot || true
-rc-update add killprocs shutdown || true
-rc-update add savecache shutdown || true
-rc-update add auditd default || true
-
-echo "Post-chroot config complete."
-EOS
-chmod +x "${MNT}/root/post-chroot.sh"
-
-# secrets to chroot
-printf "%s" "${ROOT_PASSWORD}" > "${MNT}/root/.rootpw"
-if [ -n "${NEW_USER}" ]; then
-  printf "%s:%s" "${NEW_USER}" "${NEW_USER_PASSWORD}" > "${MNT}/root/.newuser"
-fi
-if [ -n "${AUTHORIZED_KEY}" ]; then
-  printf "%s\n" "${AUTHORIZED_KEY}" > "${MNT}/root/.authkey"
-  if [ -n "${NEW_USER}" ]; then
-    printf "%s:%s\n" "${NEW_USER}" "${AUTHORIZED_KEY}" > "${MNT}/home/.userauth"
-  fi
-fi
-
-chroot "${MNT}" /bin/sh -c "/root/post-chroot.sh"
-rm -f "${MNT}/root/post-chroot.sh"
-
-###===================== SSH & POLICY TWEAKS ==================================
-if [ "${ENABLE_SSH}" != "yes" ]; then
-  chroot "${MNT}" rc-update del sshd default || true
-fi
-if [ "${PERMIT_ROOT_SSH}" = "yes" ] && [ -f "${MNT}/etc/ssh/sshd_config" ]; then
-  sed -i 's/^PermitRootLogin.*/PermitRootLogin yes/' "${MNT}/etc/ssh/sshd_config"
-fi
-
-###===================== CLEANUP & SUMMARY ====================================
-umount -R "${MNT}/proc" || true
-umount -R "${MNT}/sys" || true
-umount -R "${MNT}/dev" || true
-umount -R "${MNT}/run" || true
 
 echo
-echo "============================================================================"
-echo "All done. Installed Alpine with:"
-echo "- ${BOOT_MODE^^} boot, /boot$( [ "${BOOT_MODE}" = "uefi" ] && echo " + /boot/efi") unencrypted"
-echo "- LUKS -> LVM: /, /home, /var, /var/log, /var/log/audit, /tmp, /var/tmp $( [ -n "${LV_SWAP_SIZE}" ] && echo "+ swap")"
-echo "- Hardened mount options on tmp, var/tmp, var/log, var/log/audit"
-echo "- Audit enabled (auditd + kernel audit=1)"
-echo "- Hostname: ${HOSTNAME}, TZ: ${TIMEZONE}, Keymap: ${KEYMAP}"
-echo "- User: ${NEW_USER:-<none>}   SSH: ${ENABLE_SSH}   Root SSH: ${PERMIT_ROOT_SSH}"
-echo "Now: reboot, enter LUKS passphrase, and log in."
-echo "============================================================================"
+echo "==================================================="
+echo " Done."
+echo " Mounted target:"
+findmnt -R /mnt | sed 's/^/  /'
+echo
+echo " Next steps (inside the live environment):"
+echo "   1) apk add cryptsetup lvm2"
+echo "   2) setup-disk -m sys /mnt"
+echo "   3) chroot /mnt /bin/ash"
+echo "   4) apk add cryptsetup lvm2"
+echo "   5) echo 'features=\"base crypt lvm2\"' > /etc/mkinitfs/mkinitfs.conf && mkinitfs"
+echo "   6) apk add grub-efi && grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=alpine"
+echo "   7) echo 'GRUB_CMDLINE_LINUX=\"cryptdevice=$P2:$LUKS_NAME root=/dev/${VG_NAME}/root\"' > /etc/default/grub"
+echo "      grub-mkconfig -o /boot/grub/grub.cfg"
+echo "   8) passwd; exit; umount -R /mnt; swapoff -a; cryptsetup close $LUKS_NAME; reboot"
+echo "==================================================="

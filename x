@@ -77,11 +77,10 @@ echo "[*] Making filesystems…"
 mkfs.vfat -F32 -n "$ESP_LABEL" "$P1"
 
 # ext4 with broad compatibility (avoids rare live-ISO feature mismatches)
-mkfs.ext4 -F -O ^metadata_csum_seed "/dev/${VG_NAME}/root" -L "$FS_LABEL_ROOT"
-mkfs.ext4 -F -O ^metadata_csum_seed "/dev/${VG_NAME}/var"  -L "$FS_LABEL_VAR"
-mkfs.ext4 -F -O ^metadata_csum_seed "/dev/${VG_NAME}/log"  -L "$FS_LABEL_LOG"
-mkfs.ext4 -F -O ^metadata_csum_seed "/dev/${VG_NAME}/home" -L "$FS_LABEL_HOME"
-
+mkfs.ext4 -F -O ^metadata_csum_seed -L "$FS_LABEL_ROOT" /dev/vg0/root
+mkfs.ext4 -F -O ^metadata_csum_seed -L "$FS_LABEL_VAR"  /dev/vg0/var
+mkfs.ext4 -F -O ^metadata_csum_seed -L "$FS_LABEL_LOG"  /dev/vg0/log
+mkfs.ext4 -F -O ^metadata_csum_seed -L "$FS_LABEL_HOME" /dev/vg0/home
 mkswap "/dev/${VG_NAME}/swap"
 
 echo "[*] Mounting…"

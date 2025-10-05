@@ -21,6 +21,9 @@ sudo echo 'DPkg
   {
       Pre-Invoke  { "mount /usr -o remount,rw" };
       Post-Invoke { "mount /usr -o remount,ro" };
+      
+      Pre-Invoke  { "mount /boot -o remount,rw" };
+      Post-Invoke { "mount /boot -o remount,ro" };
   };' >> /etc/apt/apt.conf.d/75remount
   
 sudo echo 'Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";' >> /etc/apt/apt.conf.d/50unattended-upgrades

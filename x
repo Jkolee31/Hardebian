@@ -44,17 +44,17 @@ EOF
 cat >/etc/pam.d/common-session <<'EOF'
 #%PAM-1.0
 session required pam_limits.so
-session required pam_access.so
 session required pam_env.so
 session optional pam_elogind.so
+session optional pam_umask.so umask=077
 session required pam_unix.so
 EOF
 cat >/etc/pam.d/common-session-noninteractive <<'EOF'
 #%PAM-1.0
 session required pam_limits.so
-session required pam_access.so
 session required pam_env.so
 session optional pam_elogind.so
+session optional pam_umask.so umask=077
 session required pam_unix.so
 EOF
 cat >/etc/pam.d/common-password <<'EOF'
@@ -226,6 +226,10 @@ sudo userdel uucp
 sudo touch /etc/securetty
 sudo chown root:root /etc/securetty
 sudo chmod 400 /etc/securetty
+sudo echo "console" > /etc/securetty
+sudo echo "bin/bash" > etc/shells
+sudo chattr +i /etc/securetty
+sudo chattr +i /etc/shells
 sudo passwd -l root
 sudo echo "-:user:ALL EXCEPT LOCAL" >> /etc/security/access.conf
 sudo echo "-:root:ALL" >> /etc/security/access.con
@@ -234,8 +238,6 @@ sudo echo "needs_root_rights = no" >> /etc/X11/Xwrapper.config
 sudo dpkg-reconfigure xserver-xorg-legacy
 sudo echo "multi on
       order hosts" > /etc/host.conf
-sudo echo "session optional pam_umask.so umask=077" >> /etc/pam.d/common-session 
-sudo echo "session optional pam_umask.so umask=077" >> /etc/pam.d/common-session-noninteractive
 sed -i -e 's/^DIR_MODE=.*/DIR_MODE=0750/' -e 's/^#DIR_MODE=.*/DIR_MODE=0750/' /etc/adduser.conf
 sed -i -e 's/^#DSHELL=.*/DSHELL=\/usr\/sbin\/nologin/' /etc/adduser.conf
 sed -i -e 's/^USERGROUPS=.*/USERGROUPS=yes/' -e 's/^#USERGROUPS=.*/USERGROUPS=yes/' /etc/adduser.conf

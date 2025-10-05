@@ -16,10 +16,10 @@ sudo echo 'Acquire::http::AllowRedirect "false";' >> /etc/apt/apt.conf.d/98-hard
 sudo echo 'APT::Install-Suggests "false";' >> /etc/apt/apt.conf.d/98-hardening 
 sudo echo 'APT::Install-Recommends "false";' >> /etc/apt/apt.conf.d/98-hardening 
 sudo apt update
-sudo apt purge -y apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra
-sudo apt install -y curl git apparmor rsyslog chrony apparmor-utils apparmor-profiles apparmor-profiles-extra apt-listbugs apt-listchanges needrestart debsecan debsums acct wget gnupg lsb-release apt-transport-https git unzip patch tar pcscd pulseaudio curl git wget rkhunter chkrootkit lynis tcpd macchanger  unhide tcpd haveged rng-tools jitterentropy-rngd --no-install-recommends --no-suggests
-
-sudo apt install pamu2fcfg libpam-u2f
+sudo systemctl disable --now cups.socket avahi-daemon.service rpcbind.service nfs-server.service
+sudo systemctl mask cups.socket avahi-daemon.service rpcbind.service nfs-server.service
+sudo apt purge ssh* openssh* acpi* anacron* samba winbind cron* avahi* cup* zram* print* rsync* virtual* sane* rpc* bind* nfs* blue* pp* mesa* spee* espeak* mobile* wireless* bc perl blue* inet* python3 apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra
+sudo apt install -y curl pamu2fcfg libpam-u2f git apparmor rsyslog chrony apparmor-utils apparmor-profiles apparmor-profiles-extra apt-listbugs apt-listchanges needrestart debsecan debsums acct wget gnupg lsb-release apt-transport-https git unzip patch tar pcscd pulseaudio curl git wget rkhunter chkrootkit lynis tcpd macchanger  unhide tcpd haveged rng-tools jitterentropy-rngd --no-install-recommends --no-suggests
 
 sudo -u dev pamu2fcfg  > /etc/conf
 sudo chmod 600 /etc/conf

@@ -16,6 +16,7 @@ touch /var/log/sudo.log
 chmod 600 /var/log/sudo.log
 
 mount /usr -o remount,rw
+mount /usr/local -o remount,rw
 mount /boot -o remount,rw
   
 sudo echo 'APT::Install-Suggests "false";' >> /etc/apt/apt.conf.d/98-hardening 
@@ -46,7 +47,7 @@ cat >/etc/pam.d/common-session <<'EOF'
 session required pam_limits.so
 session required pam_env.so
 session optional pam_elogind.so
-session optional pam_umask.so umask=077
+session optional pam_umask.so umask=027
 session required pam_unix.so
 EOF
 cat >/etc/pam.d/common-session-noninteractive <<'EOF'
@@ -54,7 +55,7 @@ cat >/etc/pam.d/common-session-noninteractive <<'EOF'
 session required pam_limits.so
 session required pam_env.so
 session optional pam_elogind.so
-session optional pam_umask.so umask=077
+session optional pam_umask.so umask=027
 session required pam_unix.so
 EOF
 cat >/etc/pam.d/common-password <<'EOF'
@@ -244,7 +245,7 @@ sed -i -e 's/^USERGROUPS=.*/USERGROUPS=yes/' -e 's/^#USERGROUPS=.*/USERGROUPS=ye
 sed -i 's/^SHELL=.*/SHELL=\/usr\/sbin\/nologin/' /etc/default/useradd
 sed -i 's/^# INACTIVE=.*/INACTIVE=30/' /etc/default/useradd
 sed -i 's/^.*LOG_OK_LOGINS.*/LOG_OK_LOGINS yes/' /etc/login.defs
-sed -i 's/^UMASK.*/UMASK 077/' /etc/login.defs
+sed -i 's/^UMASK.*/UMASK 027/' /etc/login.defs
 sed -i 's/^PASS_MIN_DAYS.*/PASS_MIN_DAYS 1/' /etc/login.defs
 sed -i 's/^PASS_MAX_DAYS.*/PASS_MAX_DAYS 60/' /etc/login.defs
 sed -i 's/DEFAULT_HOME.*/DEFAULT_HOME no/' /etc/login.defs
@@ -252,9 +253,9 @@ sed -i 's/ENCRYPT_METHOD.*/ENCRYPT_METHOD SHA512/' /etc/login.defs
 sed -i 's/USERGROUPS_ENAB.*/USERGROUPS_ENAB no/' /etc/login.defs
 sed -i 's/^#.*SHA_CRYPT_MIN_ROUNDS.*/SHA_CRYPT_MIN_ROUNDS 10000/' /etc/login.defs
 sed -i 's/^#.*SHA_CRYPT_MAX_ROUNDS.*/SHA_CRYPT_MAX_ROUNDS 65536/' /etc/login.defs
-sed -i 's/umask 027/umask 077/g' /etc/init.d/rc
-echo "umask 077" >> /etc/profile
-echo "umask 077" >> /etc/bash.bashrc
+sed -i 's/umask 027/umask 027/g' /etc/init.d/rc
+echo "umask 027" >> /etc/profile
+echo "umask 027" >> /etc/bash.bashrc
 echo "ALL: LOCAL, 127.0.0.1" >> /etc/hosts.allow
 echo "ALL: ALL" > /etc/hosts.deny
 chmod 644 /etc/hosts.allow
@@ -325,15 +326,72 @@ ChrootDirectory none
 ChallengeResponseAuthentication no
 Banner /etc/issue.net
 AuthorizedPrincipalsFile none
-AuthorizedKeysCommandUser
 AuthorizedKeysCommand none
-AllowUsers none
+AllowUsers nobody
 AllowTcpForwarding no
 AllowStreamLocalForwarding no
 AllowGroups none
 AllowAgentForwarding no
 EOF
 
+sudo mkdir /etc/ssh
+sudo tee  /etc/ssh/ssh_config > /dev/null <<EOF
+X11UseLocalhost no
+X11Forwarding no
+X11DisplayOffset 10
+VersionAddendum none
+UsePAM no
+UseDNS no
+TCPKeepAlive no
+SyslogFacility AUTH
+StrictModes yes
+RekeyLimit 512Ms+6h
+Protocol 2
+PrintMotd no
+PrintLastLog no
+Port 1212
+PermitUserRC no
+PermitUserEnvironment no
+PermitTunnel no
+PermitTTY no
+PermitRootLogin no
+PermitEmptyPasswords no
+PasswordAuthentication no
+MaxSessions 0
+MaxAuthTries 0
+MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,hmac-sha2-256
+LogLevel VERBOSE
+LoginGraceTime 60
+KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,ecdh-sha2-nistp521,ecdh-sha2-nistp384,ecdh-sha2-nistp256,group-exchange-sha256
+KerberosTicketCleanup no
+KerberosOrLocalPasswd no
+KerberosGetAFSToken no
+KerberosAuthentication no
+KbdInteractiveAuthentication no
+IgnoreUserKnownHosts yes
+IgnoreRhosts yes
+HostbasedAuthentication no
+GSSAPIKeyExchange no
+GSSAPIAuthentication no
+GatewayPorts none
+Compression no
+ClientAliveInterval 0
+ClientAliveCountMax 0
+Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
+DenyUsers all
+DenyGroups all
+DenyHosts all
+ChrootDirectory none
+ChallengeResponseAuthentication no
+Banner /etc/issue.net
+AuthorizedPrincipalsFile none
+AuthorizedKeysCommand none
+AllowUsers nobody
+AllowTcpForwarding no
+AllowStreamLocalForwarding no
+AllowGroups none
+AllowAgentForwarding no
+EOF
 sudo rc-service ssh stop
 sudo rc-service sshd stop
 sudo apt remove -y openssh* ssh*
@@ -432,7 +490,6 @@ blacklist ksmbd
 blacklist gfs2
 blacklist bluetooth
 blacklist btusb
-blacklist uvcvideo
 blacklist firewire-core
 blacklist thunderbolt
 blacklist usb-storage

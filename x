@@ -212,11 +212,11 @@ sudo userdel list
 sudo userdel news
 sudo userdel uucp
 
-  sed -i 's/^# End of file*//' /etc/security/limits.conf
+sed -i 's/^# End of file*//' /etc/security/limits.conf
   { echo '* hard maxlogins 1'
     echo '* hard core 0'
     echo '* soft core  0'
-    echo '* hard nproc 100'
+    echo '* hard nproc 150'
     echo '# End of file'
   } >> /etc/security/limits.conf
   echo "ProcessSizeMax=0

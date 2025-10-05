@@ -171,11 +171,12 @@ table ip filter {
 
 EOF
 
+sudo nft -f /etc/nftables.conf
 sudo chattr +i /etc/nftables.conf
 
 
 cat >/etc/sudoers <<'EOF'
-Defaults  passwd_tries=3
+Defaults  passwd_tries=2
 Defaults  logfile="/var/log/sudo.log"
 Defaults  use_pty
 Defaults  umask=077
@@ -185,7 +186,8 @@ dev     ALL=(ALL) ALL
 EOF
 chmod 440 /etc/sudoers
 chattr +i /etc/sudoers
-touch /var/log/sudo.log && chmod 600 /var/log/sudo.log
+touch /var/log/sudo.log
+chmod 600 /var/log/sudo.log
 
 sudo groupdel avahi --force
 sudo groupdel _flatpak --force
@@ -220,7 +222,7 @@ sudo userdel uucp
   sed -i 's/^# End of file*//' /etc/security/limits.conf
   { echo '* hard maxlogins 1'
     echo '* hard core 0'
-    echo '* soft core  0''
+    echo '* soft core  0'
     echo '* hard nproc 100'
     echo '# End of file'
   } >> /etc/security/limits.conf
@@ -261,6 +263,16 @@ echo "ALL: LOCAL, 127.0.0.1" >> /etc/hosts.allow
 echo "ALL: ALL" > /etc/hosts.deny
 chmod 644 /etc/hosts.allow
 chmod 644 /etc/hosts.deny
+chattr +i /etc/hosts.allow
+chattr +i /etc/hosts.deny
+echo -e 'TMOUT=600\nreadonly TMOUT\nexport TMOUT' > '/etc/profile.d/autologout.sh'
+sudo chmod  +x /etc/profile.d/autologout.sh
+if grep -qE 'getty' /etc/inittab; then
+  cp -a /etc/inittab "$BK/inittab"
+  sed -i -E 's/^([1-6]:23:respawn:.*getty.*tty)[2-6].*$/# \1 masked/' /etc/inittab
+  sed -i -E 's/^([2-6]:23:respawn:.*getty.*)$/# \1/' /etc/inittab
+  telinit q || true
+if
  
 
 sudo sed -i 's|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT="slab_nomerge slub_debug=FZ init_on_alloc=1 init_on_free=1 page_alloc.shuffle=1 pti=on vsyscall=none debugfs=off oops=panic module.sig_enforce=1 lockdown=confidentiality mce=0 quiet loglevel=0 ipv6.disable=1 spectre_v2=on spec_store_bypass_disable=on tsx=off tsx_async_abort=full,nosmt mds=full,nosmt l1tf=full,force nosmt=force kvm.nx_huge_pages=force quiet loglevel=0 apparmor=1 security=apparmor"|' /etc/default/grub
@@ -440,7 +452,6 @@ fs.protected_hardlinks=1
 fs.protected_symlinks=1
 fs.protected_regular=1
 fs.suid_dumpable=0
-kernel.modules_disabled=0
 kernel.core_pattern=|/bin/false
 kernel.core_uses_pid=1
 kernel.dmesg_restrict=1
@@ -451,7 +462,7 @@ kernel.perf_event_paranoid=3
 kernel.randomize_va_space=2
 kernel.sysrq=0
 kernel.unprivileged_bpf_disabled=1
-kernel.unprivileged_userns_clone=1
+kernel.unprivileged_userns_clone=0
 kernel.yama.ptrace_scope=3
 kernel.kexec_load_disabled=1
 net.core.bpf_jit_harden=2
@@ -499,6 +510,17 @@ net.ipv6.conf.default.disable_ipv6=1
 vm.mmap_rnd_bits=32
 vm.mmap_rnd_compat_bits=16" > /etc/sysctl.conf
 sysctl --system
+
+sudo echo "proc /proc proc nosuid,nodev,noexec,hidepid=2 0 0 
+securityfs /sys/kernel/security securityfs rw,nosuid,nodev,noexec 0 0
+pstore /sys/fs/pstore pstore rw,nosuid,nodev,noexec 0 0
+systemd /sys/fs/cgroup/systemd cgroup rw,nosuid,nodev,noexec 0 0
+cgroup /sys/fs/cgroup tmpfs rw,nosuid,nodev,noexec 0 0
+efivarfs /sys/firmware/efi/efivars efivarfs rw,nosuid,nodev,noexec 0 0
+net_cls /sys/fs/cgroup/net_cls cgroup rw,nosuid,nodev,noexec 0 0
+tmpfs       /run       tmpfs   defaults,nodev,nosuid,noexec,mode=0755 0 0
+tmpfs       /tmp       tmpfs   defaults,nodev,nosuid,noexec,mode=1777 0 0
+tmpfs       /var/tmp   tmpfs   defaults,nodev,nosuid,noexec,mode=1777 0 0" >> /etc/fstab
 
 sudo chmod 700 /root
 sudo chown root:root /boot 

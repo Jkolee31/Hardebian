@@ -8,7 +8,7 @@ sudo echo 'DPkg
   {
       Pre-Invoke  { "mount /usr -o remount,rw" };
       Post-Invoke { "mount /usr -o remount,ro" };
-  };' >> /etc/apt/apt.conf.d/
+  };' >> /etc/apt/apt.conf.d/75remount
 
 sudo apt install pamu2fcfg libpam-u2f
 

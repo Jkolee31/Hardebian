@@ -242,12 +242,12 @@ sudo echo "multi on
 sudo echo "session optional pam_umask.so umask=077" >> /etc/pam.d/common-session 
 sudo echo "session optional pam_umask.so umask=077" >> /etc/pam.d/common-session-noninteractive
 sed -i -e 's/^DIR_MODE=.*/DIR_MODE=0750/' -e 's/^#DIR_MODE=.*/DIR_MODE=0750/' /etc/adduser.conf
-sed -i -e 's/^DSHELL=.*/DSHELL=\/usr\/sbin\/nologin/' -e 's/^#DSHELL=.*/DSHELL=\/bin\/false/' /etc/adduser.conf
+sed -i -e 's/^#DSHELL=.*/DSHELL==\/usr\/sbin\/nologin/' /etc/adduser.conf
 sed -i -e 's/^USERGROUPS=.*/USERGROUPS=yes/' -e 's/^#USERGROUPS=.*/USERGROUPS=yes/' /etc/adduser.conf
 sed -i 's/^SHELL=.*/SHELL=\/usr\/sbin\/nologin/' /etc/default/useradd
 sed -i 's/^# INACTIVE=.*/INACTIVE=30/' /etc/default/useradd
 sed -i 's/^.*LOG_OK_LOGINS.*/LOG_OK_LOGINS yes/' /etc/login.defs
-sed -i 's/^UMASK*/UMASK 077/' /etc/login.defs
+sed -i 's/^UMASK.*/UMASK 077/' /etc/login.defs
 sed -i 's/^PASS_MIN_DAYS.*/PASS_MIN_DAYS 1/' /etc/login.defs
 sed -i 's/^PASS_MAX_DAYS.*/PASS_MAX_DAYS 60/' /etc/login.defs
 sed -i 's/DEFAULT_HOME.*/DEFAULT_HOME no/' /etc/login.defs
@@ -258,7 +258,6 @@ sed -i 's/^#.*SHA_CRYPT_MAX_ROUNDS .*/SHA_CRYPT_MAX_ROUNDS 65536/' /etc/login.de
 sed -i 's/umask 027/umask 077/g' /etc/init.d/rc
 echo "umask 077" >> /etc/profile
 echo "umask 077" >> /etc/bash.bashrc
-echo -e 'TMOUT=300' > '/etc/profile.d/autologout.sh'
 echo "ALL: LOCAL, 127.0.0.1" >> /etc/hosts.allow
 echo "ALL: ALL" > /etc/hosts.deny
 chmod 644 /etc/hosts.allow

@@ -9,6 +9,15 @@ sudo echo 'DPkg
       Pre-Invoke  { "mount /usr -o remount,rw" };
       Post-Invoke { "mount /usr -o remount,ro" };
   };' >> /etc/apt/apt.conf.d/75remount
+  
+sudo echo 'Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";' >> /etc/apt/apt.conf.d/50unattended-upgrades
+sudo echo 'APT::Get::AllowUnauthenticated "false";' >> /etc/apt/apt.conf.d/98-hardening
+sudo echo 'Acquire::http::AllowRedirect "false";' >> /etc/apt/apt.conf.d/98-hardening
+sudo echo 'APT::Install-Suggests "false";' >> /etc/apt/apt.conf.d/98-hardening 
+sudo echo 'APT::Install-Recommends "false";' >> /etc/apt/apt.conf.d/98-hardening 
+sudo apt update
+sudo apt purge -y apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra
+sudo apt install -y curl git apparmor rsyslog chrony apparmor-utils apparmor-profiles apparmor-profiles-extra apt-listbugs apt-listchanges needrestart debsecan debsums acct wget gnupg lsb-release apt-transport-https git unzip patch tar pcscd pulseaudio curl git wget rkhunter chkrootkit lynis tcpd macchanger  unhide tcpd haveged rng-tools jitterentropy-rngd --no-install-recommends --no-suggests
 
 sudo apt install pamu2fcfg libpam-u2f
 
@@ -130,6 +139,8 @@ session   include   common-session
 password  include   common-password
 EOF
 
+sudo chattr +i -R /etc/pam.d/*
+
 # === FIREWALLS ===
 cat >/etc/nftables.conf <<EOF
 flush ruleset
@@ -162,17 +173,7 @@ table ip filter {
 
 EOF
 
-# === 1. SYSTEM UPDATE AND ESSENTIALS ===
-sudo echo 'Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";' >> /etc/apt/apt.conf.d/50unattended-upgrades
-sudo echo 'APT::Get::AllowUnauthenticated "false";' >> /etc/apt/apt.conf.d/98-hardening
-sudo echo 'Acquire::http::AllowRedirect "false";' >> /etc/apt/apt.conf.d/98-hardening
-sudo echo 'APT::Install-Suggests "false";' >> /etc/apt/apt.conf.d/98-hardening 
-sudo echo 'APT::Install-Recommends "false";' >> /etc/apt/apt.conf.d/98-hardening 
-sudo apt update
-sudo apt purge -y apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra
-sudo apt install -y curl git apparmor rsyslog chrony apparmor-utils apparmor-profiles apparmor-profiles-extra apt-listbugs apt-listchanges needrestart debsecan debsums acct wget gnupg lsb-release apt-transport-https git unzip patch tar pcscd pulseaudio curl git wget rkhunter chkrootkit lynis tcpd macchanger  unhide tcpd haveged rng-tools jitterentropy-rngd --no-install-recommends --no-suggests
-
-
+sudo chattr +i /etc/nftables.conf
 
 # === REMOVE UNNECESSARY ACCOUNTS/GROUPS ===
 sudo groupdel avahi --force

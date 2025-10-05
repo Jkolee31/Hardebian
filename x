@@ -19,10 +19,10 @@ sudo apt update
 sudo systemctl disable --now cups.socket avahi-daemon.service rpcbind.service nfs-server.service
 sudo systemctl mask cups.socket avahi-daemon.service rpcbind.service nfs-server.service
 sudo apt purge ssh* openssh* acpi* anacron* samba winbind cron* avahi* cup* zram* print* rsync* virtual* sane* rpc* bind* nfs* blue* pp* mesa* spee* espeak* mobile* wireless* bc perl blue* inet* python3 apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra
-sudo apt install -y curl pamu2fcfg libpam-u2f git apparmor rsyslog chrony apparmor-utils apparmor-profiles apparmor-profiles-extra apt-listbugs apt-listchanges needrestart debsecan debsums acct wget gnupg lsb-release apt-transport-https git unzip patch tar pcscd pulseaudio curl git wget rkhunter chkrootkit lynis tcpd macchanger  unhide tcpd haveged rng-tools jitterentropy-rngd --no-install-recommends --no-suggests
-
+sudo apt install -y curl pamu2fcfg libpam-u2f git apparmor rsyslog chrony apparmor-utils apparmor-profiles apparmor-profiles-extra apt-listbugs apt-listchanges needrestart debsecan debsums acct wget gnupg lsb-release apt-transport-https git unzip patch tar pcscd pulseaudio curl git wget rkhunter chkrootkit lynis macchanger unhide tcpd haveged rng-tools jitterentropy-rngd lsb-release apt-transport-https git make unzip patch apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra auditd fail2ban fonts-liberation extrepo curl git wget rkhunter chkrootkit lynis gnome-terminal gnome-brave-icon-theme greybird* bibata* tcpd macchanger mousepad unhide gdm3 gnome-session gnome-shell gnome-shell-extensions gnome-shell-extension-manager gnome-control-center gnome-terminal thunar mutter xwayland libpam-elogind dbus dbus-x11 polkitd libpolkit-gobject-1-0 libpolkit-agent-1-0 libxfce4ui-utils xfce4-panel xfce4-pulseaudio-plugin xfce4-whiskermenu-plugin pavucontrol xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xinit xserver-xorg
 sudo -u dev pamu2fcfg  > /etc/conf
 sudo chmod 600 /etc/conf
+sudo chattr +i /etc/conf
 
 cat >/etc/pam.d/common-auth <<'EOF'
 #%PAM-1.0

@@ -4,6 +4,12 @@ set -euo pipefail
 
 # --- 1) common stacks ---
 
+sudo echo 'DPkg
+  {
+      Pre-Invoke  { "mount /usr -o remount,rw" };
+      Post-Invoke { "mount /usr -o remount,ro" };
+  };' >> /etc/apt/apt.conf.d/
+
 sudo apt install pamu2fcfg libpam-u2f
 
 sudo -u dev pamu2fcfg  > /etc/conf
@@ -165,6 +171,7 @@ sudo echo 'APT::Install-Recommends "false";' >> /etc/apt/apt.conf.d/98-hardening
 sudo apt update
 sudo apt purge -y apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra
 sudo apt install -y curl git apparmor rsyslog chrony apparmor-utils apparmor-profiles apparmor-profiles-extra apt-listbugs apt-listchanges needrestart debsecan debsums acct wget gnupg lsb-release apt-transport-https git unzip patch tar pcscd pulseaudio curl git wget rkhunter chkrootkit lynis tcpd macchanger  unhide tcpd haveged rng-tools jitterentropy-rngd --no-install-recommends --no-suggests
+
 
 
 # === REMOVE UNNECESSARY ACCOUNTS/GROUPS ===

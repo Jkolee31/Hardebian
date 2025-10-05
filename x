@@ -2,7 +2,20 @@
 
 set -euo pipefail
 
-# --- 1) common stacks ---
+cat >/etc/sudoers <<'EOF'
+Defaults  passwd_tries=2
+Defaults  logfile="/var/log/sudo.log"
+Defaults  use_pty
+Defaults  umask=077
+Defaults  secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+root    ALL=(ALL) ALL
+dev     ALL=(ALL) ALL
+EOF
+chmod 440 /etc/sudoers
+chattr +i /etc/sudoers
+touch /var/log/sudo.log
+chmod 600 /var/log/sudo.log
+
 
 sudo echo 'DPkg
   {
@@ -175,20 +188,6 @@ sudo nft -f /etc/nftables.conf
 sudo chattr +i /etc/nftables.conf
 
 
-cat >/etc/sudoers <<'EOF'
-Defaults  passwd_tries=2
-Defaults  logfile="/var/log/sudo.log"
-Defaults  use_pty
-Defaults  umask=077
-Defaults  secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-root    ALL=(ALL) ALL
-dev     ALL=(ALL) ALL
-EOF
-chmod 440 /etc/sudoers
-chattr +i /etc/sudoers
-touch /var/log/sudo.log
-chmod 600 /var/log/sudo.log
-
 sudo groupdel avahi --force
 sudo groupdel _flatpak --force
 sudo groupdel _ssh --force
@@ -232,8 +231,11 @@ sudo userdel uucp
 
 
 sudo touch /etc/securetty
-sudo chown  root:root /etc/securetty
-sudo chmod  400 /etc/securetty
+sudo chown root:root /etc/securetty
+sudo chmod 400 /etc/securetty
+sudo passwd -l root
+sudo echo "-:user:ALL EXCEPT LOCAL" >> /etc/security/access.conf
+sudo echo "-:root:ALL" >> /etc/security/access.con
 sudo passwd -l root
 sudo echo "needs_root_rights = no" >> /etc/X11/Xwrapper.config
 sudo dpkg-reconfigure xserver-xorg-legacy
@@ -242,7 +244,7 @@ sudo echo "multi on
 sudo echo "session optional pam_umask.so umask=077" >> /etc/pam.d/common-session 
 sudo echo "session optional pam_umask.so umask=077" >> /etc/pam.d/common-session-noninteractive
 sed -i -e 's/^DIR_MODE=.*/DIR_MODE=0750/' -e 's/^#DIR_MODE=.*/DIR_MODE=0750/' /etc/adduser.conf
-sed -i -e 's/^#DSHELL=.*/DSHELL==\/usr\/sbin\/nologin/' /etc/adduser.conf
+sed -i -e 's/^#DSHELL=.*/DSHELL=\/usr\/sbin\/nologin/' /etc/adduser.conf
 sed -i -e 's/^USERGROUPS=.*/USERGROUPS=yes/' -e 's/^#USERGROUPS=.*/USERGROUPS=yes/' /etc/adduser.conf
 sed -i 's/^SHELL=.*/SHELL=\/usr\/sbin\/nologin/' /etc/default/useradd
 sed -i 's/^# INACTIVE=.*/INACTIVE=30/' /etc/default/useradd
@@ -253,8 +255,8 @@ sed -i 's/^PASS_MAX_DAYS.*/PASS_MAX_DAYS 60/' /etc/login.defs
 sed -i 's/DEFAULT_HOME.*/DEFAULT_HOME no/' /etc/login.defs
 sed -i 's/ENCRYPT_METHOD.*/ENCRYPT_METHOD SHA512/' /etc/login.defs
 sed -i 's/USERGROUPS_ENAB.*/USERGROUPS_ENAB no/' /etc/login.defs
-sed -i 's/^#.*SHA_CRYPT_MIN_ROUNDS .*/SHA_CRYPT_MIN_ROUNDS 10000/' /etc/login.defs
-sed -i 's/^#.*SHA_CRYPT_MAX_ROUNDS .*/SHA_CRYPT_MAX_ROUNDS 65536/' /etc/login.defs
+sed -i 's/^#.*SHA_CRYPT_MIN_ROUNDS.*/SHA_CRYPT_MIN_ROUNDS 10000/' /etc/login.defs
+sed -i 's/^#.*SHA_CRYPT_MAX_ROUNDS.*/SHA_CRYPT_MAX_ROUNDS 65536/' /etc/login.defs
 sed -i 's/umask 027/umask 077/g' /etc/init.d/rc
 echo "umask 077" >> /etc/profile
 echo "umask 077" >> /etc/bash.bashrc
@@ -262,8 +264,6 @@ echo "ALL: LOCAL, 127.0.0.1" >> /etc/hosts.allow
 echo "ALL: ALL" > /etc/hosts.deny
 chmod 644 /etc/hosts.allow
 chmod 644 /etc/hosts.deny
-chattr +i /etc/hosts.allow
-chattr +i /etc/hosts.deny
 echo -e 'TMOUT=600\nreadonly TMOUT\nexport TMOUT' > '/etc/profile.d/autologout.sh'
 sudo chmod  +x /etc/profile.d/autologout.sh
 if grep -qE 'getty' /etc/inittab; then

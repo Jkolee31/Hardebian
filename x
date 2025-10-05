@@ -22,10 +22,13 @@ sudo echo 'APT::Install-Suggests "false";' >> /etc/apt/apt.conf.d/98-hardening
 sudo echo 'APT::Install-Recommends "false";' >> /etc/apt/apt.conf.d/98-hardening 
 sudo apt update
 sudo apt purge ssh* openssh* acpi* anacron* samba winbind cron* avahi* cup* zram* print* rsync* virtual* sane* rpc* bind* nfs* blue* pp* mesa* spee* espeak* mobile* wireless* bc perl blue* inet* python3 apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra
-sudo apt install -y curl pamu2fcfg libpam-u2f apparmor rsyslog chrony apparmor-utils apparmor-profiles apparmor-profiles-extra apt-listbugs apt-listchanges needrestart debsecan debsums acct gnupg lsb-release apt-transport-https unzip patch pulseaudio gnome-brave-icon-theme greybird* bibata* tcpd macchanger mousepad gnome-terminal thunar libxfce4ui-utils xfce4-panel xfce4-pulseaudio-plugin xfce4-whiskermenu-plugin pavucontrol xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xinit xserver-xorg
+sudo apt install -y pamu2fcfg libpam-u2f apparmor rsyslog chrony apparmor-utils apparmor-profiles apparmor-profiles-extra apt-listbugs apt-listchanges needrestart debsecan debsums acct gnupg lsb-release apt-transport-https slick-greeter unzip patch pulseaudio pavucontrol gnome-brave-icon-theme greybird* bibata* tcpd macchanger mousepad gnome-terminal thunar libxfce4ui-utils xfce4-panel xfce4-pulseaudio-plugin xfce4-whiskermenu-plugin xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xinit xserver-xorg
 sudo -u dev pamu2fcfg  > /etc/conf
 sudo chmod 600 /etc/conf
 sudo chattr +i /etc/conf
+adduser dev input
+adduser dev render
+adduser dev tty
 
 cat >/etc/pam.d/common-auth <<'EOF'
 #%PAM-1.0
@@ -433,72 +436,61 @@ blacklist thunderbolt
 blacklist usb-storage
 EOF
 
-rm -r /etc/sysctl.d
-rm -r /usr/lib/sysctl.d
-echo "dev.tty.ldisc_autoload=0
-fs.protected_fifos=2
-fs.protected_hardlinks=1
-fs.protected_symlinks=1
-fs.protected_regular=1
-fs.suid_dumpable=0
-kernel.core_pattern=|/bin/false
-kernel.core_uses_pid=1
-kernel.dmesg_restrict=1
-kernel.kptr_restrict=2
-kernel.panic=60
-kernel.panic_on_oops=60
-kernel.perf_event_paranoid=3
-kernel.randomize_va_space=2
-kernel.sysrq=0
-kernel.unprivileged_bpf_disabled=1
-kernel.unprivileged_userns_clone=0
-kernel.yama.ptrace_scope=3
-kernel.kexec_load_disabled=1
-net.core.bpf_jit_harden=2
-net.ipv4.tcp_sack=0
-net.ipv4.tcp_dsack=0
-net.ipv4.tcp_fack=0
+sudo rm -r /etc/sysctl.d
+sudo rm -r /usr/lib/sysctl.d
+sudo echo "net.ipv4.conf.all.accept_source_route=0
+net.ipv6.conf.all.accept_source_route=0
+net.ipv4.conf.default.accept_source_route=0
+net.ipv6.conf.default.accept_source_route=0
+net.ipv4.conf.all.accept_redirects=0
+net.ipv6.conf.all.accept_redirects=0
+net.ipv4.conf.default.accept_redirects=0
+net.ipv6.conf.default.accept_redirects=0
+net.ipv4.conf.all.secure_redirects=0
+net.ipv4.conf.default.secure_redirects=0
+net.ipv4.ip_forward=0
+net.ipv6.conf.all.forwarding=0
+net.ipv4.conf.all.send_redirects=0
+net.ipv4.conf.default.send_redirects=0
+net.ipv4.conf.all.rp_filter=1
+net.ipv4.conf.default.rp_filter=1
 net.ipv4.icmp_echo_ignore_broadcasts=1
 net.ipv4.icmp_ignore_bogus_error_responses=1
-net.ipv4.ip_forward=0
-net.ipv4.tcp_rfc1337=1
-net.ipv4.tcp_syn_retries=5
-net.ipv4.tcp_synack_retries=2
-net.ipv4.tcp_syncookies=1
-net.ipv4.conf.default.accept_redirects=0
-net.ipv4.conf.default.accept_source_route=0
-net.ipv4.conf.default.log_martians=1
-net.ipv4.conf.default.rp_filter=1
-net.ipv4.conf.default.secure_redirects=0
-net.ipv4.conf.default.send_redirects=0
-net.ipv4.conf.default.shared_media=0
-net.ipv4.conf.all.accept_redirects=0
-net.ipv4.conf.all.accept_source_route=0
+net.ipv4.icmp_echo_ignore_all=1
 net.ipv4.conf.all.log_martians=1
-net.ipv4.conf.all.rp_filter=1
-net.ipv4.conf.all.secure_redirects=0
-net.ipv4.conf.all.send_redirects=0
-net.ipv4.conf.all.shared_media=0
-net.ipv6.conf.default.accept_ra=0
-net.ipv6.conf.default.accept_ra_defrtr=0
-net.ipv6.conf.default.accept_ra_pinfo=0
-net.ipv6.conf.default.accept_ra_rtr_pref=0
-net.ipv6.conf.default.accept_redirects=0
-net.ipv6.conf.default.accept_source_route=0
-net.ipv6.conf.default.autoconf=0
-net.ipv6.conf.default.dad_transmits=0
-net.ipv6.conf.default.max_addresses=0
-net.ipv6.conf.default.router_solicitations=0
-net.ipv6.conf.eth0.accept_ra_rtr_pref=0
+net.ipv4.conf.default.log_martians=1
+net.ipv4.tcp_rfc1337=1
+net.ipv4.tcp_syncookies=1
 net.ipv6.conf.all.accept_ra=0
-net.ipv6.conf.all.accept_redirects=0
-net.ipv6.conf.all.accept_source_route=0
-net.ipv6.conf.all.forwarding=0
-net.ipv6.conf.all.disable_ipv6=1
-net.ipv6.conf.default.disable_ipv6=1
+net.ipv6.conf.default.accept_ra=0
+net.ipv6.conf.all.disable_ipv6 = 1
+net.ipv6.conf.default.disable_ipv6 = 1
+net.ipv6.conf.all.disable_ipv6 = 1
+kernel.printk = 3 3 3 3
+dev.tty.ldisc_autoload=0
+fs.protected_fifo=2
+fs.protected_hardlinks=1
+fs.protected_symlinks=1
+fs.protected_regular=2
+kernel.randomize_va_space=2
+fs.suid_dumpable=0
+kernel.core_pattern=|/bin/false
+kernel.kptr_restrict=2
+kernel.dmesg_restrict=1 
+kernel.core_uses_pid=1
+kernel.perf_event_paranoid=3
+kernel.unprivileged_bpf_disabled=1
+net.core.bpf_jit_harden=2
+kernel.yama.ptrace_scope=3
+kernel.kexec_load_disabled=1
 vm.mmap_rnd_bits=32
-vm.mmap_rnd_compat_bits=16" > /etc/sysctl.conf
-sysctl --system
+vm.mmap_rnd_compat_bits=16
+kernel.sysrq=0
+kernel.unprivileged_userns_clone=1
+net.ipv4.tcp_sack=0
+net.ipv4.tcp_dsack=0
+net.ipv4.tcp_fack=0" > /etc/sysctl.conf
+sudo sysctl --system
 
 sudo echo "proc /proc proc nosuid,nodev,noexec,hidepid=2 0 0 
 securityfs /sys/kernel/security securityfs rw,nosuid,nodev,noexec 0 0
@@ -507,7 +499,6 @@ systemd /sys/fs/cgroup/systemd cgroup rw,nosuid,nodev,noexec 0 0
 cgroup /sys/fs/cgroup tmpfs rw,nosuid,nodev,noexec 0 0
 efivarfs /sys/firmware/efi/efivars efivarfs rw,nosuid,nodev,noexec 0 0
 net_cls /sys/fs/cgroup/net_cls cgroup rw,nosuid,nodev,noexec 0 0
-tmpfs       /run       tmpfs   defaults,nodev,nosuid,noexec,mode=0755 0 0
 tmpfs       /tmp       tmpfs   defaults,nodev,nosuid,noexec,mode=1777 0 0
 tmpfs       /var/tmp   tmpfs   defaults,nodev,nosuid,noexec,mode=1777 0 0" >> /etc/fstab
 

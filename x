@@ -38,15 +38,17 @@ EOF
 cat >/etc/pam.d/common-session <<'EOF'
 #%PAM-1.0
 session required pam_limits.so
+session required pam_access.so
 session required pam_env.so
-session optional pam_systemd.so
+session optional pam_elogind.so
 session required pam_unix.so
 EOF
 cat >/etc/pam.d/common-session-noninteractive <<'EOF'
 #%PAM-1.0
 session required pam_limits.so
+session required pam_access.so
 session required pam_env.so
-session optional pam_systemd.so
+session optional pam_elogind.so
 session required pam_unix.so
 EOF
 cat >/etc/pam.d/common-password <<'EOF'
@@ -118,25 +120,21 @@ cat >/etc/pam.d/other <<'EOF'
 #%PAM-1.0
 auth      requisite pam_securetty.so
 auth      required   pam_unix.so
-auth      required   pam_warn.so
-auth      required   pam_deny.so
 account   required   pam_unix.so
-account   required   pam_warn.so
-account   required   pam_deny.so
 password  required   pam_unix.so
-password  required   pam_warn.so
-password  required   pam_deny.so
+session   required   pam_limits.so
+session   required   pam_access.so
 session   required   pam_unix.so
-session   required   pam_warn.so
-session   required   pam_deny.so
 EOF
 cat >/etc/pam.d/login <<'EOF'
 #%PAM-1.0
 auth      requisite pam_securetty.so
 auth      include   common-auth
 account   include   common-account
-session   include   common-session
 password  include   common-password
+session   required  pam_limits.so
+session   required  pam_access.so
+session   required  pam_unix.so.
 EOF
 
 sudo chattr +i -R /etc/pam.d/*
@@ -175,7 +173,20 @@ EOF
 
 sudo chattr +i /etc/nftables.conf
 
-# === REMOVE UNNECESSARY ACCOUNTS/GROUPS ===
+
+cat >/etc/sudoers <<'EOF'
+Defaults  passwd_tries=3
+Defaults  logfile="/var/log/sudo.log"
+Defaults  use_pty
+Defaults  umask=077
+Defaults  secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+root    ALL=(ALL) ALL
+dev     ALL=(ALL) ALL
+EOF
+chmod 440 /etc/sudoers
+chattr +i /etc/sudoers
+touch /var/log/sudo.log && chmod 600 /var/log/sudo.log
+
 sudo groupdel avahi --force
 sudo groupdel _flatpak --force
 sudo groupdel _ssh --force

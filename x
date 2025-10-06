@@ -1,370 +1,384 @@
 #!/usr/bin/env bash
-# Hardened baseline for Debian/Ubuntu
-# Theme: default lock-down; explicit, reversible toggles to unlock.
 
-set -euo pipefail
+# --- 1) common stacks ---
 
-### ====== SETTINGS YOU MAY TUNE ======
-# Change these if you like:
-ALLOW_USER="dev"                         # your daily user
-U2F_MAP="/etc/u2f_mappings"              # pam_u2f mapping file path
-APT_PIN_NAME="deny-ssh.pref"             # apt pin to block ssh daemons
-NFT_PROFILE_LOCKED="/etc/nftables/locked.nft"
-NFT_PROFILE_MAINT="/etc/nftables/maintenance.nft"  # allows DNS+NTP+HTTPS for updates
-SUID_ALLOWLIST=(
-  "/usr/bin/sudo" "/bin/mount" "/bin/umount"
-  "/bin/ping" "/usr/bin/passwd" "/usr/bin/chsh" "/usr/bin/chfn"
-)
+sudo echo 'Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";' >> /etc/apt/apt.conf.d/50unattended-upgrades
+sudo echo 'APT::Get::AllowUnauthenticated "false";' >> /etc/apt/apt.conf.d/98-hardening
+sudo echo 'Acquire::http::AllowRedirect "false";' >> /etc/apt/apt.conf.d/98-hardening
+sudo echo 'APT::Install-Suggests "false";' >> /etc/apt/apt.conf.d/98-hardening 
+sudo echo 'APT::Install-Recommends "false";' >> /etc/apt/apt.conf.d/98-hardening 
+sudo apt update
+sudo apt purge ssh* openssh* acpi* anacron* samba winbind cron* avahi* cup* zram* print* rsync* virtual* sane* rpc* bind* nfs* blue* pp* mesa* spee* espeak* mobile* wireless* bc perl blue* inet* python3 apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra
 
-DRY_RUN="${DRY_RUN:-0}"  # set DRY_RUN=1 to preview without changes
-### ===================================
+sudo apt install -y  pamu2fcfg libpam-u2f apparmor rsyslog chrony apparmor-utils apparmor-profiles apparmor-profiles-extra apt-listbugs apt-listchanges needrestart debsecan debsums acct wget gnupg lsb-release apt-transport-https unzip patch pulseaudio rkhunter chkrootkit lynis macchanger unhide tcpd haveged lsb-release apt-transport-https auditd fonts-liberation extrepo gnome-terminal gnome-brave-icon-theme greybird* bibata* tcpd macchanger mousepad unhide slick-greeter libxfce4ui-utils second xfwm4 xfdesktop4 
+sudo -u dev pamu2fcfg  > /etc/conf
+sudo chmod 600 /etc/conf
 
-log(){ printf '[*] %s\n' "$*"; }
-warn(){ printf '[!] %s\n' "$*" >&2; }
-die(){ printf '[X] %s\n' "$*" >&2; exit 1; }
-
-run(){
-  if [ "$DRY_RUN" = "1" ]; then echo "DRYRUN: $*"; else eval "$@"; fi
-}
-
-bak(){ local f="$1"; [ -e "$f" ] && run "cp -a '$f' '${f}.bak.$(date +%s)'" || true; }
-
-require_root(){ [ "$(id -u)" -eq 0 ] || die "Run as root."; }
-require_debian(){
-  command -v apt >/dev/null || die "This script targets Debian/Ubuntu (apt).";
-  [ -f /etc/os-release ] || die "Missing /etc/os-release.";
-}
-
-header(){ echo; log "=== $* ==="; }
-
-### ====== BASELINE PREREQS ======
-prereqs(){
-  header "Pre-reqs"
-  run "apt-get update -y"
-  run "apt-get install -y --no-install-recommends \
-        rsyslog chrony apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra \
-        nftables auditd needrestart apt-listbugs apt-listchanges debsums debsecan"
-  run "systemctl enable --now rsyslog chrony apparmor nftables auditd"
-}
-
-### ====== APT HARDENING & PINS ======
-apt_hardening(){
-  header "APT hardening"
-  run "install -d -m 755 /etc/apt/apt.conf.d /etc/apt/preferences.d"
-  # don’t install recommends/suggests
-  local aptfile="/etc/apt/apt.conf.d/98-hardening"
-  bak "$aptfile"
-  cat >"$aptfile" <<'EOF'
-APT::Install-Recommends "false";
-APT::Install-Suggests "false";
-Dpkg::Use-Pty "true";
+cat >/etc/pam.d/common-auth <<'EOF'
+#%PAM-1.0
+auth   sufficient  pam_u2f.so authfile=/etc/conf
+auth   [success=1 default=ignore] pam_unix.so try_first_pass
+auth   requisite   pam_deny.so
+auth   required    pam_permit.so
+EOF
+cat >/etc/pam.d/common-account <<'EOF'
+#%PAM-1.0
+account required pam_unix.so
+EOF
+cat >/etc/pam.d/common-session <<'EOF'
+#%PAM-1.0
+session required pam_limits.so
+session required pam_access.so
+session required pam_env.so
+session optional pam_elogind.so
+session required pam_unix.so
+EOF
+cat >/etc/pam.d/common-session-noninteractive <<'EOF'
+#%PAM-1.0
+session required pam_limits.so
+session required pam_access.so
+session required pam_env.so
+session optional pam_elogind.so
+session required pam_unix.so
+EOF
+cat >/etc/pam.d/common-password <<'EOF'
+#%PAM-1.0
+password [success=1 default=ignore] pam_unix.so obscure use_authtok try_first_pass sha512
+password requisite pam_deny.so
+password required  pam_permit.so
+EOF
+cat >/etc/pam.d/lightdm <<'EOF'
+#%PAM-1.0
+auth      requisite pam_nologin.so
+auth      required  pam_u2f.so authfile=/etc/conf
+auth      include   common-auth
+account   include   common-account
+session   include   common-session
+password  include   common-password
+EOF
+cat >/etc/pam.d/sudo <<'EOF'
+#%PAM-1.0
+auth      sufficient pam_u2f.so authfile=/etc/conf
+auth      required   pam_unix.so
+account   required   pam_unix.so
+password  required   pam_unix.so
+session   required   pam_limits.so
+session   required   pam_env.so
+session   required   pam_unix.so
+EOF
+cat >/etc/pam.d/sudo-i <<'EOF'
+#%PAM-1.0
+auth      required   pam_u2f.so authfile=/etc/conf
+auth      required   pam_unix.so
+account   required   pam_unix.so
+password  required   pam_unix.so
+session   required   pam_limits.so
+session   required   pam_env.so
+session   required   pam_unix.so
+EOF
+cat >/etc/pam.d/sshd <<'EOF'
+#%PAM-1.0
+auth      required   pam_u2f.so authfile=/etc/conf
+auth      required   pam_unix.so
+account   required   pam_unix.so
+password  required   pam_unix.so
+session   required   pam_limits.so
+session   required   pam_env.so
+session   required   pam_unix.so
+EOF
+cat >/etc/pam.d/su <<'EOF'
+#%PAM-1.0
+auth      required   pam_u2f.so authfile=/etc/conf
+auth      required   pam_unix.so
+account   required   pam_unix.so
+password  required   pam_unix.so
+session   required   pam_limits.so
+session   required   pam_env.so
+session   required   pam_unix.so
+EOF
+cat >/etc/pam.d/su-l <<'EOF'
+#%PAM-1.0
+auth      required   pam_u2f.so authfile=/etc/conf
+auth      required   pam_unix.so
+account   required   pam_unix.so
+password  required   pam_unix.so
+session   required   pam_limits.so
+session   required   pam_env.so
+session   required   pam_unix.so
+EOF
+cat >/etc/pam.d/other <<'EOF'
+#%PAM-1.0
+auth      requisite pam_securetty.so
+auth      required   pam_unix.so
+account   required   pam_unix.so
+password  required   pam_unix.so
+session   required   pam_limits.so
+session   required   pam_access.so
+session   required   pam_unix.so
+EOF
+cat >/etc/pam.d/login <<'EOF'
+#%PAM-1.0
+auth      requisite pam_securetty.so
+auth      include   common-auth
+account   include   common-account
+password  include   common-password
+session   required  pam_limits.so
+session   required  pam_access.so
+session   required  pam_unix.so.
 EOF
 
-  # pin SSH daemons so they cannot be installed
-  local pin="/etc/apt/preferences.d/${APT_PIN_NAME}"
-  bak "$pin"
-  cat >"$pin" <<'EOF'
-Package: openssh-server
-Pin: release *
-Pin-Priority: -1
+sudo chattr +i -R /etc/pam.d/*
 
-Package: dropbear
-Pin: release *
-Pin-Priority: -1
-
-Package: tinyssh
-Pin: release *
-Pin-Priority: -1
-EOF
-  run "apt-get update -y"
-}
-
-### ====== SUDOERS (drop-in, validated) ======
-sudoers_hardening(){
-  header "sudoers"
-  run "install -d -m 750 /etc/sudoers.d"
-  bak /etc/sudoers
-  local f="/etc/sudoers.d/99-hardening"
-  cat >"$f" <<'EOF'
-Defaults passwd_tries=2
-Defaults use_pty
-Defaults logfile="/var/log/sudo.log"
-Defaults secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-EOF
-  run "touch /var/log/sudo.log && chmod 0600 /var/log/sudo.log"
-  run "visudo -cf /etc/sudoers"
-  run "visudo -cf $f"
-}
-
-### ====== PAM: U2F optional/sufficient for sudo & login ======
-pam_u2f_minimal(){
-  header "PAM U2F (minimal, survivable)"
-  # Expect mapping file to be provisioned separately for $ALLOW_USER
-  run "install -m 600 /dev/null '$U2F_MAP' || true"  # leave empty by default
-  # SUDO: prefer key if present, fallback to password (break-glass)
-  local ps="/etc/pam.d/sudo"
-  bak "$ps"
-  if ! grep -q pam_u2f.so "$ps"; then
-    sed -i '1i auth sufficient pam_u2f.so cue authfile='"$U2F_MAP" "$ps"
-  fi
-  # LOGIN/SSHD leave alone here; SSH is blocked separately. If you later enable SSH, add pam_u2f similarly.
-}
-
-### ====== LOGIN DEFS & UMASK ======
-login_defs(){
-  header "login.defs / shells"
-  bak /etc/login.defs
-  sed -ri 's/^(\s*UMASK\s+).*/\1027/; s/^(\s*PASS_MIN_DAYS\s+).*/\11/; s/^(\s*PASS_MAX_DAYS\s+).*/\160/; s/^(\s*ENCRYPT_METHOD\s+).*/\1SHA512/' /etc/login.defs || true
-  # default shell for new users → nologin (explicitly set shell when creating)
-  bak /etc/default/useradd
-  sed -ri 's|^SHELL=.*|SHELL=/usr/sbin/nologin|' /etc/default/useradd || true
-  # ensure /etc/shells lists valid shells (don’t break tools):
-  grep -qxF "/bin/bash" /etc/shells || echo "/bin/bash" >>/etc/shells
-  grep -qxF "/usr/sbin/nologin" /etc/shells || echo "/usr/sbin/nologin" >>/etc/shells
-  # global umask
-  grep -qxF "umask 027" /etc/profile || echo "umask 027" >> /etc/profile
-  grep -qxF "umask 027" /etc/bash.bashrc || echo "umask 027" >> /etc/bash.bashrc
-  # auto-logout after 10 min for shells
-  cat >/etc/profile.d/autologout.sh <<'EOF'
-TMOUT=600
-readonly TMOUT
-export TMOUT
-EOF
-  run "chmod +x /etc/profile.d/autologout.sh"
-}
-
-### ====== SYSCTL (drop-in, not monolithic overwrite) ======
-sysctl_hardening(){
-  header "sysctl"
-  run "install -d -m 755 /etc/sysctl.d"
-  local f="/etc/sysctl.d/99-hardening.conf"
-  bak "$f"
-  cat >"$f" <<'EOF'
-# Network
-net.ipv4.conf.all.accept_redirects = 0
-net.ipv4.conf.default.accept_redirects = 0
-net.ipv6.conf.all.accept_redirects = 0
-net.ipv6.conf.default.accept_redirects = 0
-net.ipv4.conf.all.send_redirects = 0
-net.ipv4.conf.default.send_redirects = 0
-net.ipv4.conf.all.rp_filter = 1
-net.ipv4.conf.default.rp_filter = 1
-net.ipv4.tcp_syncookies = 1
-# ICMP: keep enabled for PMTU & diagnostics (do NOT set icmp_echo_ignore_all=1)
-
-# Kernel exposure
-kernel.kptr_restrict = 2
-kernel.dmesg_restrict = 1
-kernel.kexec_load_disabled = 1
-kernel.yama.ptrace_scope = 2
-kernel.unprivileged_bpf_disabled = 1
-
-# Filesystem hardening
-fs.protected_hardlinks = 1
-fs.protected_symlinks = 1
-fs.protected_fifos = 2
-fs.protected_regular = 2
-EOF
-  run "sysctl --system"
-}
-
-### ====== NFTABLES: profiles & toggles ======
-nft_profiles(){
-  header "nftables profiles"
-  run "install -d -m 755 /etc/nftables"
-  # Locked profile: default-drop INPUT; OUTPUT accept; allow ICMP, DNS, NTP; SSH closed.
-  cat >"$NFT_PROFILE_LOCKED" <<'EOF'
+# === FIREWALLS ===
+cat >/etc/nftables.conf <<EOF
 flush ruleset
-table inet filter {
+
+table ip filter {
   chain input {
-    type filter hook input priority 0; policy drop;
-    iif "lo" accept
+    type filter hook input priority filter; policy drop;
+    iifname "lo" accept
+    ct state invalid drop
     ct state established,related accept
-    ip protocol icmp accept
-    ip6 nexthdr icmpv6 accept
-    udp dport {53,123,51820} accept
-    tcp dport {80,443} accept   # comment these if you want strict inbound serverless
-    # ssh explicitly dropped
-    tcp dport {22,2222,2200} drop
+    iifname "wg0" accept
   }
-  chain output {
-    type filter hook output priority 0; policy accept;
-  }
+
   chain forward {
-    type filter hook forward priority 0; policy drop;
+    type filter hook forward priority filter; policy drop;
   }
-}
-EOF
 
-  # Maintenance egress profile: keep INPUT drop; OUTPUT allow DNS/NTP/HTTP(S) only
-  cat >"$NFT_PROFILE_MAINT" <<'EOF'
-flush ruleset
-table inet filter {
-  chain input {
-    type filter hook input priority 0; policy drop;
-    iif "lo" accept
-    ct state established,related accept
-    ip protocol icmp accept
-    ip6 nexthdr icmpv6 accept
-    udp dport {53,123,51820} accept
-    # Inbound web closed; tune if this is a server
-    tcp dport {22} drop
-  }
   chain output {
-    type filter hook output priority 0; policy drop;
-    oif "lo" accept
+    type filter hook output priority filter; policy drop;
+    oifname "lo" accept
+    ct state invalid drop
     ct state established,related accept
-    udp dport {53,123} accept
-    tcp dport {80,443} accept
+    udp dport 51820 accept
+    udp dport 53 accept
+    tcp dport 443 accept
+    tcp dport 80 accept
+
   }
-  chain forward {
-    type filter hook forward priority 0; policy drop;
-  }
 }
+
 EOF
 
-  # default to maintenance (tighter egress). Switch with apply_nft_profile <locked|maintenance>
-  run "nft -f '$NFT_PROFILE_MAINT'"
-  run "systemctl enable --now nftables"
-}
+sudo chattr +i /etc/nftables.conf
 
-apply_nft_profile(){
-  local which="${1:-maintenance}"
-  case "$which" in
-    locked)     run "nft -f '$NFT_PROFILE_LOCKED'";;
-    maintenance) run "nft -f '$NFT_PROFILE_MAINT'";;
-    *) die "Unknown profile: $which";;
-  esac
-  log "Applied nftables profile: $which"
-}
+  sed -i 's/^# End of file*//' /etc/security/limits.conf
+  { echo '* hard maxlogins 1'
+    echo '* hard core 0'
+    echo '* soft core  0''
+    echo '* hard nproc 200
+    echo '# End of file'
+  } >> /etc/security/limits.conf
+  echo "ProcessSizeMax=0
+  Storage=none" >> /etc/systemd/coredump.conf
+  echo "ulimit -c 0" >> /etc/profile
 
-### ====== SSH: block resurrection cleanly, reversible ======
-enforce_no_ssh(){
-  header "Enforce no SSH (install-mask-divert)"
-  # Pin packages
-  apt_hardening
 
-  # Mask units so they can't start even if installed
-  run "systemctl mask --now ssh.service ssh.socket 2>/dev/null || true"
-  run "systemctl mask --now sshd.service 2>/dev/null || true"
+sudo touch /etc/securetty
+sudo chown  root:root /etc/securetty
+sudo chmod  400 /etc/securetty
+echo “console >  etc/
+sudo passwd -l root
+sudo echo "needs_root_rights = no" >> /etc/X11/Xwrapper.config
+sudo dpkg-reconfigure xserver-xorg-legacy
+sudo echo "multi on
+      order hosts" > /etc/host.conf
+sudo echo "session optional pam_umask.so
+sed -i -e 's/^DIR_MODE=.*/DIR_MODE=0750/' -e 's/^#DIR_MODE=.*/DIR_MODE=0750/' /etc/adduser.conf
+sed -i -e 's/^DSHELL=.*/DSHELL=\/usr\/sbin\/nologin/' -e 's/^#DSHELL=.*/DSHELL=\/bin\/false/' /etc/adduser.conf
+sed -i -e 's/^USERGROUPS=.*/USERGROUPS=yes/' -e 's/^#USERGROUPS=.*/USERGROUPS=yes/' /etc/adduser.conf
+sed -i 's/^SHELL=.*/SHELL=\/usr\/sbin\/nologin/' /etc/default/useradd
+sed -i 's/^# INACTIVE=.*/INACTIVE=30/' /etc/default/useradd
+sed -i 's/^.*LOG_OK_LOGINS.*/LOG_OK_LOGINS yes/' /etc/login.defs
+sed -i 's/^UMASK.*/UMASK 027/' /etc/login.defs
+sed -i 's/^PASS_MIN_DAYS.*/PASS_MIN_DAYS 1/' /etc/login.defs
+sed -i 's/^PASS_MAX_DAYS.*/PASS_MAX_DAYS 60/' /etc/login.defs
+sed -i 's/DEFAULT_HOME.*/DEFAULT_HOME no/' /etc/login.defs
+sed -i 's/ENCRYPT_METHOD.*/ENCRYPT_METHOD SHA512/' /etc/login.defs
+sed -i 's/USERGROUPS_ENAB.*/USERGROUPS_ENAB no/' /etc/login.defs
+sed -i 's/^#.*SHA_CRYPT_MIN_ROUNDS .*/SHA_CRYPT_MIN_ROUNDS 10000/' /etc/login.defs
+sed -i 's/^#.*SHA_CRYPT_MAX_ROUNDS .*/SHA_CRYPT_MAX_ROUNDS 65536/' /etc/login.defs
+sed -i 's/umask 027/umask 027/g' /etc/init.d/rc
+echo "umask 027" >> /etc/profile
+echo "umask 027" >> /etc/bash.bashrc
+echo "ALL: LOCAL, 127.0.0.1" >> /etc/hosts.allow
+echo "ALL: ALL" > /etc/hosts.deny
+chmod 644 /etc/hosts.allow
+chmod 644 /etc/hosts.deny
+ 
 
-  # Divert binaries (belt & suspenders)
-  run "mkdir -p /usr/local/disabled"
-  if [ -x /usr/sbin/sshd ]; then
-    run "dpkg-divert --package hardening --divert /usr/local/disabled/sshd --rename /usr/sbin/sshd || true"
-  fi
-  if [ -e /usr/lib/openssh/sftp-server ]; then
-    run "dpkg-divert --package hardening --divert /usr/local/disabled/sftp-server --rename /usr/lib/openssh/sftp-server || true"
-  fi
-}
+sudo sed -i 's|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT="slab_nomerge slub_debug=FZ init_on_alloc=1 init_on_free=1 page_alloc.shuffle=1 pti=on vsyscall=none debugfs=off oops=panic module.sig_enforce=1 lockdown=confidentiality mce=0 quiet loglevel=0 ipv6.disable=1 spectre_v2=on spec_store_bypass_disable=on tsx=off tsx_async_abort=full,nosmt mds=full,nosmt l1tf=full,force nosmt=force kvm.nx_huge_pages=force quiet loglevel=0 apparmor=1 security=apparmor"|' /etc/default/grub
+sudo update-grub
+sudo chown root:root /etc/default/grub
+sudo chmod 640 /etc/default/grub 
 
-allow_ssh_again(){
-  header "Undo SSH block (you still need to install it)"
-  run "rm -f /etc/apt/preferences.d/${APT_PIN_NAME}"
-  run "systemctl unmask ssh.service ssh.socket sshd.service 2>/dev/null || true"
-  # remove diversions if present
-  run "dpkg-divert --package hardening --rename --remove /usr/sbin/sshd 2>/dev/null || true"
-  run "dpkg-divert --package hardening --rename --remove /usr/lib/openssh/sftp-server 2>/dev/null || true"
-  log "SSH pins/masks removed. Install and configure SSH intentionally if needed."
-}
+sudo echo "
+Unauthorized access to this server is prohibited.
+All connections are monitored and recorded.
+Legal action will be taken. Please disconnect now.
+" >> /etc/motd  
+  
+sudo echo "
+Unauthorized access to this server is prohibited.
+All connections are monitored and recorded.
+Legal action will be taken. Please disconnect now.
+" >> /etc/issue
+  
+sudo echo "
+Unauthorized access to this server is prohibited.
+All connections are monitored and recorded.
+Legal action will be taken. Please disconnect now.
+" >> /etc/issue.net
 
-### ====== AUDITD: alert if ssh-like stuff shows up ======
-auditd_rules(){
-  header "auditd rules for ssh detection"
-  local f="/etc/audit/rules.d/40-ssh-block.rules"
-  bak "$f"
-  cat >"$f" <<'EOF'
-# Exec of common SSH daemons (paths may vary)
--a always,exit -F arch=b64 -S execve -F exe=/usr/sbin/sshd -k ssh_exec
--a always,exit -F arch=b64 -S execve -F exe=/usr/sbin/dropbear -k ssh_exec
-# Bind to port 22 (AF_INET=2, htons(22)=0x1600 -> arg2=0x160016 on x86_64; tune if needed)
--a always,exit -F arch=b64 -S bind -F a2=0x160016 -k ssh_bind_22
+cat > /etc/modprobe.d/harden.conf << 'EOF'
+install dccp /bin/false
+install sctp /bin/false
+install rds /bin/false
+install tipc /bin/false
+install ax25 /bin/false
+install netrom /bin/false
+install x25 /bin/false
+install rose /bin/false
+install decnet /bin/false
+install econet /bin/false
+install af_802154 /bin/false
+install ipx /bin/false
+install appletalk /bin/false
+install psnap /bin/false
+install p8023 /bin/false
+install p8022 /bin/false
+install can /bin/false
+install atm /bin/false
+install cramfs /bin/false
+install freevxfs /bin/false
+install jffs2 /bin/false
+install hfs /bin/false
+install hfsplus /bin/false
+install squashfs /bin/false
+install udf /bin/false
+install cifs /bin/false
+install nfs /bin/false
+install nfsd /bin/false
+install nfsv3 /bin/false
+install nfsv4 /bin/false
+install lockd /bin/false
+install ksmbd /bin/false
+install gfs2 /bin/false
+install bluetooth /bin/false
+install btusb /bin/false
+install uvcvideo /bin/false
+install firewire-core /bin/false
+install thunderbolt /bin/false
+install usb-storage /bin/false
+blacklist dccp
+blacklist sctp
+blacklist rds
+blacklist tipc
+blacklist ax25
+blacklist netrom
+blacklist x25
+blacklist rose
+blacklist decnet
+blacklist econet
+blacklist af_802154
+blacklist ipx
+blacklist appletalk
+blacklist psnap
+blacklist p8023
+blacklist p8022
+blacklist can
+blacklist atm
+blacklist cramfs
+blacklist freevxfs
+blacklist jffs2
+blacklist hfs
+blacklist hfsplus
+blacklist squashfs
+blacklist udf
+blacklist cifs
+blacklist nfs
+blacklist nfsd
+blacklist nfsv3
+blacklist nfsv4
+blacklist lockd
+blacklist ksmbd
+blacklist gfs2
+blacklist bluetooth
+blacklist btusb
+blacklist uvcvideo
+blacklist firewire-core
+blacklist thunderbolt
+blacklist usb-storage
 EOF
-  run "augenrules --load"
-  run "systemctl restart auditd"
-}
 
-### ====== LOG PERMS (safe) ======
-log_perms(){
-  header "/var/log perms"
-  run "chown -R root:adm /var/log"
-  run "find /var/log -type d -exec chmod 0750 {} +"
-  run "find /var/log -type f -exec chmod 0640 {} +"
-}
+rm -r /etc/sysctl.d
+rm -r /usr/lib/sysctl.d
+echo "dev.tty.ldisc_autoload=0
+fs.protected_fifos=2
+fs.protected_hardlinks=1
+fs.protected_symlinks=1
+fs.protected_regular=1
+fs.suid_dumpable=0
+kernel.modules_disabled=0
+kernel.core_pattern=|/bin/false
+kernel.core_uses_pid=1
+kernel.dmesg_restrict=1
+kernel.kptr_restrict=2
+kernel.panic=60
+kernel.panic_on_oops=60
+kernel.perf_event_paranoid=3
+kernel.randomize_va_space=2
+kernel.sysrq=0
+kernel.unprivileged_bpf_disabled=1
+kernel.unprivileged_userns_clone=1
+kernel.yama.ptrace_scope=3
+kernel.kexec_load_disabled=1
+net.core.bpf_jit_harden=2
+net.ipv4.tcp_sack=0
+net.ipv4.tcp_dsack=0
+net.ipv4.tcp_fack=0
+net.ipv4.icmp_echo_ignore_broadcasts=1
+net.ipv4.icmp_ignore_bogus_error_responses=1
+net.ipv4.ip_forward=0
+net.ipv4.tcp_rfc1337=1
+net.ipv4.tcp_syn_retries=5
+net.ipv4.tcp_synack_retries=2
+net.ipv4.tcp_syncookies=1
+net.ipv4.conf.default.accept_redirects=0
+net.ipv4.conf.default.accept_source_route=0
+net.ipv4.conf.default.log_martians=1
+net.ipv4.conf.default.rp_filter=1
+net.ipv4.conf.default.secure_redirects=0
+net.ipv4.conf.default.send_redirects=0
+net.ipv4.conf.default.shared_media=0
+net.ipv4.conf.all.accept_redirects=0
+net.ipv4.conf.all.accept_source_route=0
+net.ipv4.conf.all.log_martians=1
+net.ipv4.conf.all.rp_filter=1
+net.ipv4.conf.all.secure_redirects=0
+net.ipv4.conf.all.send_redirects=0
+net.ipv4.conf.all.shared_media=0
+net.ipv6.conf.default.accept_ra=0
+net.ipv6.conf.default.accept_ra_defrtr=0
+net.ipv6.conf.default.accept_ra_pinfo=0
+net.ipv6.conf.default.accept_ra_rtr_pref=0
+net.ipv6.conf.default.accept_redirects=0
+net.ipv6.conf.default.accept_source_route=0
+net.ipv6.conf.default.autoconf=0
+net.ipv6.conf.default.dad_transmits=0
+net.ipv6.conf.default.max_addresses=0
+net.ipv6.conf.default.router_solicitations=0
+net.ipv6.conf.eth0.accept_ra_rtr_pref=0
+net.ipv6.conf.all.accept_ra=0
+net.ipv6.conf.all.accept_redirects=0
+net.ipv6.conf.all.accept_source_route=0
+net.ipv6.conf.all.forwarding=0
+net.ipv6.conf.all.disable_ipv6=1
+net.ipv6.conf.default.disable_ipv6=1
+vm.mmap_rnd_bits=32
+vm.mmap_rnd_compat_bits=16" > /etc/sysctl.conf
+sysctl --system
 
-### ====== SYSTEM USERS: lock shells, don't delete ======
-lock_legacy_users(){
-  header "Lock legacy/system users (no deletion)"
-  local to_lock=(news uucp irc games list)
-  for u in "${to_lock[@]}"; do
-    if id "$u" &>/dev/null; then
-      run "usermod -L -s /usr/sbin/nologin '$u' || true"
-    fi
-  done
-}
 
-### ====== SUID/SGID: audit then prune everything not in allowlist ======
-suid_prune(){
-  header "SUID/SGID audit & prune (allowlist)"
-  local before="/root/suid_sgid.before"
-  run "find / -xdev -type f \\( -perm -4000 -o -perm -2000 \\) -print > '$before' 2>/dev/null || true"
-  while IFS= read -r f; do
-    local keep=0
-    for a in "${SUID_ALLOWLIST[@]}"; do
-      [ "$f" = "$a" ] && keep=1 && break
-    done
-    if [ "$keep" -eq 0 ]; then
-      run "chmod u-s,g-s '$f' || true"
-    fi
-  done < "$before"
-  log "Pruned SUID/SGID outside allowlist. Review $before for diffs."
-}
 
-### ====== MOTD/BANNER (cosmetic/legal) ======
-banner(){
-  header "Banners"
-  for f in /etc/motd /etc/issue /etc/issue.net; do
-    bak "$f"
-    cat >"$f" <<'EOF'
-Unauthorized access to this system is prohibited.
-Connections may be monitored and recorded.
-Disconnect immediately if you are not authorized.
-EOF
-  done
-}
-
-### ====== MAIN ======
-main(){
-  require_root
-  require_debian
-
-  prereqs
-  apt_hardening
-  sudoers_hardening
-  pam_u2f_minimal
-  login_defs
-  sysctl_hardening
-  nft_profiles            # default to maintenance egress
-  enforce_no_ssh          # hard-block ssh resurrection
-  auditd_rules
-  log_perms
-  lock_legacy_users
-  suid_prune
-
-  log "Done. Defaults: INPUT drop, OUTPUT restricted (maintenance), SSH blocked."
-  echo
-  echo "Toggles you can run later:"
-  echo "  apply_nft_profile locked        # OUTPUT accept (normal workstation), INPUT default-drop"
-  echo "  apply_nft_profile maintenance   # OUTPUT only DNS+NTP+HTTPS (update mode)"
-  echo "  allow_ssh_again                 # remove pins/masks/diversions (then install & configure SSH intentionally)"
-  echo
-  echo "Remember to provision U2F for $ALLOW_USER into $U2F_MAP if you want key auth for sudo:"
-  echo "  pamu2fcfg -u $ALLOW_USER >> $U2F_MAP   # run as that user with a key inserted"
-}
-
-# Allow calling helper functions directly: hardened.sh func [args...]
-if [ "${1:-}" = "apply_nft_profile" ] || [ "${1:-}" = "allow_ssh_again" ]; then
-  "$@"
-else
-  main "$@"
-fi

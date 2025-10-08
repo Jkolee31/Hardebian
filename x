@@ -8,7 +8,7 @@ sudo echo 'Acquire::http::AllowRedirect "false";' >> /etc/apt/apt.conf.d/98-hard
 sudo echo 'APT::Install-Suggests "false";' >> /etc/apt/apt.conf.d/98-hardening 
 sudo echo 'APT::Install-Recommends "false";' >> /etc/apt/apt.conf.d/98-hardening 
 sudo apt update
-sudo apt purge ssh* openssh* acpi* anacron* samba winbind cron* avahi* cup* zram* print* rsync* virtual* sane* rpc* bind* nfs* blue* pp* mesa* spee* espeak* mobile* wireless* bc perl blue* inet* python3 apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra
+sudo apt purge ssh* openssh* acpi* anacron* samba cron* avahi* cup* zram* print* rsync* virtual* sane* rpc* bind* nfs* blue* pp* mesa* spee* espeak* mobile* wireless* bc perl blue* inet* python3 apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra
 
 sudo apt install -y  pamu2fcfg libpam-u2f apparmor rsyslog chrony apparmor-utils apparmor-profiles apparmor-profiles-extra apt-listbugs apt-listchanges needrestart debsecan debsums acct wget gnupg lsb-release apt-transport-https unzip patch pulseaudio rkhunter chkrootkit lynis macchanger unhide tcpd haveged lsb-release apt-transport-https auditd fonts-liberation extrepo gnome-terminal gnome-brave-icon-theme greybird* bibata* tcpd macchanger mousepad gdm3 gnome-session gnome-shell gnome-control-center gnome-terminal nautilus mutter xwayland elogind libpam-elogind dbus dbus-x11 polkitd libpolkit-gobject-1-0 libpolkit-agent-1-0
 
@@ -18,7 +18,7 @@ sudo chmod 600 /home/dev/.config/default
 sudo install -o root -g root -m 600 /home/dev/.config/default /etc/conf
 sudo addgroup wheel
 sudo install -d /etc/sudoers.d
-sudo echo "%%wheel  ALL=(ALL) ALL\n' >/etc/sudoers.d/00-wheel
+sudo echo "%%wheel  ALL=(ALL) ALL\n" >/etc/sudoers.d/00-wheel
 chmod 440 /etc/sudoers.d/00-wheel
 sudo adduser dev wheel
 

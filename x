@@ -18,7 +18,7 @@ sudo chmod 600 /home/dev/.config/default
 sudo install -o root -g root -m 600 /home/dev/.config/default /etc/conf
 sudo addgroup wheel
 sudo install -d /etc/sudoers.d
-sudo echo "%%wheel  ALL=(ALL) ALL\n" >/etc/sudoers.d/00-wheel
+sudo echo "%wheel  ALL=(ALL) ALL\n" >/etc/sudoers.d/00-wheel
 chmod 440 /etc/sudoers.d/00-wheel
 sudo adduser dev wheel
 
@@ -187,14 +187,13 @@ sudo touch /etc/securetty
 sudo chown  root:root /etc/securetty
 sudo echo “console” > /etc/securetty
 sudo chmod  400 /etc/securetty
-echo “console >  etc/securetty
-echo “/bin/bash > /etc/shells
+echo “console" >  etc/securetty
+echo “/bin/bash" > /etc/shells
 sudo passwd -l root
-sudo echo "needs_root_rights = no" >> /etc/X11/Xwrapper.config
+sudo echo "needs_root_rights no" >> /etc/X11/Xwrapper.config
 sudo dpkg-reconfigure xserver-xorg-legacy
 sudo echo "multi on
       order hosts" > /etc/host.conf
-sudo echo "session optional pam_umask.so
 sed -i -e 's/^DIR_MODE=.*/DIR_MODE=0750/' -e 's/^#DIR_MODE=.*/DIR_MODE=0750/' /etc/adduser.conf
 sed -i -e 's/^DSHELL=.*/DSHELL=\/usr\/sbin\/nologin/' -e 's/^#DSHELL=.*/DSHELL=\/bin\/false/' /etc/adduser.conf
 sed -i -e 's/^USERGROUPS=.*/USERGROUPS=yes/' -e 's/^#USERGROUPS=.*/USERGROUPS=yes/' /etc/adduser.conf

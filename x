@@ -8,9 +8,9 @@ sudo echo 'Acquire::http::AllowRedirect "false";' >> /etc/apt/apt.conf.d/98-hard
 sudo echo 'APT::Install-Suggests "false";' >> /etc/apt/apt.conf.d/98-hardening 
 sudo echo 'APT::Install-Recommends "false";' >> /etc/apt/apt.conf.d/98-hardening 
 sudo apt update
-sudo apt purge ssh* openssh* acpi* anacron* samba cron* avahi* cup* zram* print* rsync* virtual* sane* rpc* bind* nfs* blue* pp* mesa* spee* espeak* mobile* wireless* bc perl blue* inet* python3 apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra
+sudo apt purge ssh* openssh* acpi* anacron* samba winbind cron* avahi* cup* zram* print* rsync* virtual* sane* rpc* bind* nfs* blue* pp* mesa* spee* espeak* mobile* wireless* bc perl blue* inet* python3 apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra dictionaries-common doc-debian emacsen-common ethtool iamerican ibritish ienglish-common inetutils-telnet ispell task-english util-linux-locales wamerican wtmpdb zerofree tasksel tasksel-data vim-tiny vim-common
 
-sudo apt install -y  pamu2fcfg libpam-u2f apparmor rsyslog chrony apparmor-utils apparmor-profiles apparmor-profiles-extra apt-listbugs apt-listchanges needrestart debsecan debsums acct wget gnupg lsb-release apt-transport-https unzip patch pulseaudio rkhunter chkrootkit lynis macchanger unhide tcpd haveged lsb-release apt-transport-https auditd fonts-liberation extrepo gnome-terminal gnome-brave-icon-theme greybird* bibata* tcpd macchanger mousepad gdm3 gnome-session gnome-shell gnome-control-center gnome-terminal nautilus mutter xwayland elogind libpam-elogind dbus dbus-x11 polkitd libpolkit-gobject-1-0 libpolkit-agent-1-0
+sudo apt install -y  pamu2fcfg libpam-u2f apparmor rsyslog chrony apparmor-utils apparmor-profiles apparmor-profiles-extra apt-listbugs apt-listchanges needrestart debsecan debsums acct wget gnupg lsb-release apt-transport-https unzip patch pulseaudio rkhunter chkrootkit lynis macchanger unhide tcpd haveged lsb-release apt-transport-https auditd fonts-liberation extrepo gnome-terminal gnome-brave-icon-theme greybird* bibata* tcpd macchanger mousepad libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfconf xfdesktop4 xfwm4 xserver-xorg xinit xfce4-pulse* xfce4-whisk* opensnitch* python3-opensnitch*
 
 sudo mkdir /home/dev/.config
 sudo -u dev pamu2fcfg  > /home/dev/.config/default

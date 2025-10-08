@@ -10,9 +10,17 @@ sudo echo 'APT::Install-Recommends "false";' >> /etc/apt/apt.conf.d/98-hardening
 sudo apt update
 sudo apt purge ssh* openssh* acpi* anacron* samba winbind cron* avahi* cup* zram* print* rsync* virtual* sane* rpc* bind* nfs* blue* pp* mesa* spee* espeak* mobile* wireless* bc perl blue* inet* python3 apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra
 
-sudo apt install -y  pamu2fcfg libpam-u2f apparmor rsyslog chrony apparmor-utils apparmor-profiles apparmor-profiles-extra apt-listbugs apt-listchanges needrestart debsecan debsums acct wget gnupg lsb-release apt-transport-https unzip patch pulseaudio rkhunter chkrootkit lynis macchanger unhide tcpd haveged lsb-release apt-transport-https auditd fonts-liberation extrepo gnome-terminal gnome-brave-icon-theme greybird* bibata* tcpd macchanger mousepad unhide slick-greeter libxfce4ui-utils second xfwm4 xfdesktop4 
-sudo -u dev pamu2fcfg  > /etc/conf
-sudo chmod 600 /etc/conf
+sudo apt install -y  pamu2fcfg libpam-u2f apparmor rsyslog chrony apparmor-utils apparmor-profiles apparmor-profiles-extra apt-listbugs apt-listchanges needrestart debsecan debsums acct wget gnupg lsb-release apt-transport-https unzip patch pulseaudio rkhunter chkrootkit lynis macchanger unhide tcpd haveged lsb-release apt-transport-https auditd fonts-liberation extrepo gnome-terminal gnome-brave-icon-theme greybird* bibata* tcpd macchanger mousepad gdm3 gnome-session gnome-shell gnome-control-center gnome-terminal nautilus mutter xwayland elogind libpam-elogind dbus dbus-x11 polkitd libpolkit-gobject-1-0 libpolkit-agent-1-0
+
+sudo mkdir /home/dev/.config
+sudo -u dev pamu2fcfg  > /home/dev/.config/default
+sudo chmod 600 /home/dev/.config/default
+sudo install -o root -g root -m 600 /home/dev/.config/default /etc/conf
+sudo addgroup wheel
+sudo install -d /etc/sudoers.d
+sudo echo "%%wheel  ALL=(ALL) ALL\n' >/etc/sudoers.d/00-wheel
+chmod 440 /etc/sudoers.d/00-wheel
+sudo adduser dev wheel
 
 cat >/etc/pam.d/common-auth <<'EOF'
 #%PAM-1.0
@@ -177,8 +185,10 @@ sudo chattr +i /etc/nftables.conf
 
 sudo touch /etc/securetty
 sudo chown  root:root /etc/securetty
+sudo echo “console” > /etc/securetty
 sudo chmod  400 /etc/securetty
-echo “console >  etc/
+echo “console >  etc/securetty
+echo “/bin/bash > /etc/shells
 sudo passwd -l root
 sudo echo "needs_root_rights = no" >> /etc/X11/Xwrapper.config
 sudo dpkg-reconfigure xserver-xorg-legacy
@@ -191,7 +201,7 @@ sed -i -e 's/^USERGROUPS=.*/USERGROUPS=yes/' -e 's/^#USERGROUPS=.*/USERGROUPS=ye
 sed -i 's/^SHELL=.*/SHELL=\/usr\/sbin\/nologin/' /etc/default/useradd
 sed -i 's/^# INACTIVE=.*/INACTIVE=30/' /etc/default/useradd
 sed -i 's/^.*LOG_OK_LOGINS.*/LOG_OK_LOGINS yes/' /etc/login.defs
-sed -i 's/^UMASK.*/UMASK 027/' /etc/login.defs
+sed -i 's/^UMASK.*/UMASK 077/' /etc/login.defs
 sed -i 's/^PASS_MIN_DAYS.*/PASS_MIN_DAYS 1/' /etc/login.defs
 sed -i 's/^PASS_MAX_DAYS.*/PASS_MAX_DAYS 60/' /etc/login.defs
 sed -i 's/DEFAULT_HOME.*/DEFAULT_HOME no/' /etc/login.defs
@@ -199,9 +209,9 @@ sed -i 's/ENCRYPT_METHOD.*/ENCRYPT_METHOD SHA512/' /etc/login.defs
 sed -i 's/USERGROUPS_ENAB.*/USERGROUPS_ENAB no/' /etc/login.defs
 sed -i 's/^#.*SHA_CRYPT_MIN_ROUNDS .*/SHA_CRYPT_MIN_ROUNDS 10000/' /etc/login.defs
 sed -i 's/^#.*SHA_CRYPT_MAX_ROUNDS .*/SHA_CRYPT_MAX_ROUNDS 65536/' /etc/login.defs
-sed -i 's/umask 027/umask 027/g' /etc/init.d/rc
-echo "umask 027" >> /etc/profile
-echo "umask 027" >> /etc/bash.bashrc
+sed -i 's/umask 077/umask 027/g' /etc/init.d/rc
+echo "umask 077" >> /etc/profile
+echo "umask 077" >> /etc/bash.bashrc
 echo "ALL: LOCAL, 127.0.0.1" >> /etc/hosts.allow
 echo "ALL: ALL" > /etc/hosts.deny
 chmod 644 /etc/hosts.allow
@@ -271,45 +281,7 @@ install uvcvideo /bin/false
 install firewire-core /bin/false
 install thunderbolt /bin/false
 install usb-storage /bin/false
-blacklist dccp
-blacklist sctp
-blacklist rds
-blacklist tipc
-blacklist ax25
-blacklist netrom
-blacklist x25
-blacklist rose
-blacklist decnet
-blacklist econet
-blacklist af_802154
-blacklist ipx
-blacklist appletalk
-blacklist psnap
-blacklist p8023
-blacklist p8022
-blacklist can
-blacklist atm
-blacklist cramfs
-blacklist freevxfs
-blacklist jffs2
-blacklist hfs
-blacklist hfsplus
-blacklist squashfs
-blacklist udf
-blacklist cifs
-blacklist nfs
-blacklist nfsd
-blacklist nfsv3
-blacklist nfsv4
-blacklist lockd
-blacklist ksmbd
-blacklist gfs2
-blacklist bluetooth
-blacklist btusb
-blacklist uvcvideo
-blacklist firewire-core
-blacklist thunderbolt
-blacklist usb-storage
+
 EOF
 
 rm -r /etc/sysctl.d
@@ -379,6 +351,3 @@ net.ipv6.conf.default.disable_ipv6=1
 vm.mmap_rnd_bits=32
 vm.mmap_rnd_compat_bits=16" > /etc/sysctl.conf
 sysctl --system
-
-
-

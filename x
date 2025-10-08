@@ -36,7 +36,6 @@ EOF
 cat >/etc/pam.d/common-session <<'EOF'
 #%PAM-1.0
 session required pam_limits.so
-session required pam_access.so
 session required pam_env.so
 session optional pam_elogind.so
 session required pam_unix.so
@@ -44,7 +43,6 @@ EOF
 cat >/etc/pam.d/common-session-noninteractive <<'EOF'
 #%PAM-1.0
 session required pam_limits.so
-session required pam_access.so
 session required pam_env.so
 session optional pam_elogind.so
 session required pam_unix.so
@@ -131,8 +129,7 @@ auth      include   common-auth
 account   include   common-account
 password  include   common-password
 session   required  pam_limits.so
-session   required  pam_access.so
-session   required  pam_unix.so.
+session   required  pam_unix.so
 EOF
 
 sudo chattr +i -R /etc/pam.d/*

@@ -197,7 +197,7 @@ chattr +i -R /etc/pam.d/*
 cat >/etc/nftables.conf <<EOF
 flush ruleset
 
-table ip filter {
+table inet filter {
   chain input {
     type filter hook input priority filter; policy drop;
     iifname "lo" accept
@@ -256,7 +256,7 @@ userdel nobody
 userdel irc
 userdel games
 
-# MISC 
+# MISC HARDENING 
 touch /etc/securetty
 chown  root:root /etc/securetty
 chmod  400 /etc/securetty

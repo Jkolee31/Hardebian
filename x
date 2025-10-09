@@ -23,11 +23,11 @@ bin/hardening.sh --apply --allow-unsupported-distribution
 bin/hardening.sh --apply --allow-unsupported-distribution
 bin/hardening.sh --apply --allow-unsupported-distribution
 
-apt purge ssh* openssh* acpi* anacron* samba winbind cron* avahi* cup* zram* print* rsync* virtual* sane* rpc* bind* nfs* blue* pp* mesa* spee* espeak* mobile* wireless* bc perl blue* inet* python3 apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra dictionaries-common doc-debian emacsen-common ethtool iamerican ibritish ienglish-common inetutils-telnet ispell task-english util-linux-locales wamerican wtmpdb zerofree tasksel tasksel-data vim-tiny vim-common
+apt purge virtualbox* lxc* docker* podman* xen* bochs* uml-utilities vagrant* ssh* openssh* acpi* anacron* samba winbind qemu-system* qemu-utils libvirt* virt-manager cron* avahi* cup* zram* print* rsync* virtual* sane* rpc* bind* nfs* blue* pp* mesa* spee* espeak* mobile* wireless* bc perl blue* inet* python3 apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra dictionaries-common doc-debian emacsen-common ethtool iamerican ibritish ienglish-common inetutils-telnet ispell task-english util-linux-locales wamerican wtmpdb zerofree tasksel tasksel-data vim-tiny vim-common
 
 install -d /etc/apt/preferences.d
 cat >/etc/apt/preferences.d/deny-ssh.pref <<'EOF'
-Package: openssh-server
+Package: openssh* ssh* libssh*
 Pin: release *
 Pin-Priority: -1
 
@@ -38,6 +38,35 @@ Pin-Priority: -1
 Package: tinyssh
 Pin: release *
 Pin-Priority: -1
+
+Package: qemu* libvirt* virtualbox* lxc* docker* podman* xen* vagrant*
+Pin: release *
+Pin-Priority: -1
+
+Package: systemd
+Pin: release *
+Pin-Priority: -1
+
+Package: libsystemd0
+Pin: release *
+Pin-Priority: -1
+
+Package: libpam-systemd
+Pin: release *
+Pin-Priority: -1
+
+Package: systemd-sysv
+Pin: release *
+Pin-Priority: -1
+
+Package: systemd-container
+Pin: release *
+Pin-Priority: -1
+
+Package: systemd-timesyncd
+Pin: release *
+Pin-Priority: -1
+
 EOF
 apt update
 
@@ -329,6 +358,15 @@ Legal action will be taken. Please disconnect now.
 
 # MODULES
 cat > /etc/modprobe.d/harden.conf << 'EOF'
+blacklist kvm
+blacklist kvm_intel
+blacklist kvm_amd
+blacklist vboxdrv
+blacklist vboxnetflt
+blacklist vboxnetadp
+blacklist vmw_vmci
+blacklist vmmon
+blacklist xen
 install dccp /bin/false
 install sctp /bin/false
 install rds /bin/false

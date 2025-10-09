@@ -2,13 +2,13 @@
 
 set -euo pipefail
 
+# PRE CONFIG/AUDIT
 echo 'Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";' >> /etc/apt/apt.conf.d/50unattended-upgrades
 echo 'APT::Get::AllowUnauthenticated "false";' >> /etc/apt/apt.conf.d/98-hardening
 echo 'Acquire::http::AllowRedirect "false";' >> /etc/apt/apt.conf.d/98-hardening
 echo 'APT::Install-Recommends "false";' >> /etc/apt/apt.conf.d/98-hardening 
 apt update
 
-# System Audit/Pre-Hardening
 git clone https://github.com/ovh/debian-cis.git && cd debian-cis
 cp debian/default /etc/default/cis-hardening
 sed -i "s#CIS_LIB_DIR=.*#CIS_LIB_DIR='$(pwd)'/lib#" /etc/default/cis-hardening
@@ -183,7 +183,6 @@ password required pam_deny.so
 session required pam_deny.so
 "
 
-# lightdm
 backup /etc/pam.d/lightdm || true
 write  /etc/pam.d/lightdm "#%PAM-1.0
 auth    requisite pam_nologin.so
@@ -194,7 +193,7 @@ password include  common-password
 "
 chattr +i -R /etc/pam.d/*
 
-# Firewall
+# FIREWALL
 cat >/etc/nftables.conf <<EOF
 flush ruleset
 
@@ -228,6 +227,7 @@ EOF
 nft -f /etc/nftables.conf
 chattr +i /etc/nftables.conf
 
+#GROUP/USER
 groupdel avahi --force
 groupdel _flatpak --force
 groupdel _ssh --force
@@ -256,7 +256,7 @@ userdel nobody
 userdel irc
 userdel games
 
-# Various Hardening 
+# MISC 
 touch /etc/securetty
 chown  root:root /etc/securetty
 chmod  400 /etc/securetty
@@ -301,15 +301,14 @@ echo "ALL: ALL" > /etc/hosts.deny
 chmod 644 /etc/hosts.allow
 chmod 644 /etc/hosts.deny
  
-
-# Grub
+# GRUB
 sed -i 's|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT="slab_nomerge slub_debug=FZ init_on_alloc=1 init_on_free=1 page_alloc.shuffle=1 pti=on vsyscall=none debugfs=off oops=panic module.sig_enforce=1 lockdown=confidentiality mce=0 quiet loglevel=0 ipv6.disable=1 spectre_v2=on spec_store_bypass_disable=on tsx=off tsx_async_abort=full,nosmt mds=full,nosmt l1tf=full,force nosmt=force kvm.nx_huge_pages=force quiet loglevel=0 apparmor=1 security=apparmor"|' /etc/default/grub
 update-grub
 chown root:root /etc/default/grub
 chmod 640 /etc/default/grub 
 chattr +i /etc/default/grub
 
-# Warning Message
+# MESSAGE
 echo "
 Unauthorized access to this server is prohibited.
 All connections are monitored and recorded.
@@ -328,7 +327,7 @@ All connections are monitored and recorded.
 Legal action will be taken. Please disconnect now.
 " >> /etc/issue.net
 
-# Disable Modules
+# MODULES
 cat > /etc/modprobe.d/harden.conf << 'EOF'
 install dccp /bin/false
 install sctp /bin/false
@@ -371,7 +370,7 @@ install thunderbolt /bin/false
 install usb-storage /bin/false
 EOF
 
-# Kernel Hardening
+# KERNEL
 rm -r /etc/sysctl.d
 rm -r /usr/lib/sysctl.d
 echo "dev.tty.ldisc_autoload=0
@@ -415,8 +414,7 @@ vm.mmap_rnd_bits=32
 vm.mmap_rnd_compat_bits=16" > /etc/sysctl.conf
 sysctl --system
 
-
-# Mount Hardening
+# MOUNTS
 echo "
 /dev/mapper/lvg-root                      /                          ext4       discard,noatime,nodev,errors=remount-ro 0 1
 /dev/mapper/lvg-home                      /home                      ext4       discard,noatime,nodev,nosuid 0 2
@@ -442,9 +440,7 @@ tmpfs                                     /tmp                       tmpfs      
 tmpfs                                     /var/tmp                   tmpfs      nosuid,nodev,noexec,mode=1777 0 0
 " >> /etc/fstab
 
-
-
-# Lockdown
+# LOCKDOWN
 find / -perm -4000 -o -perm -2000 -exec chmod a-s {} \; 2>/dev/null
 find / -perm -4000 -exec chmod u-s {} \;
 find / -perm -4000 -exec chmod g-s {} \;
@@ -479,9 +475,3 @@ chattr +i /etc/sysctl.conf
 chattr -R +i /etc/modprobe.d
 chattr +i /etc/services
 chattr +i /etc/sudoers
-
-
-
-vm.mmap_rnd_bits=32
-vm.mmap_rnd_compat_bits=16" > /etc/sysctl.conf
-sysctl --system

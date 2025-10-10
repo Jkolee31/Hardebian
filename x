@@ -101,125 +101,129 @@ chmod 440 /etc/sudoers.d/00-wheel
 adduser dev wheel
 
 #PAM
-ts="$(date +%Y%m%d%H%M%S)"
+sudo mkdir /home/dev/.config
+sudo -u dev pamu2fcfg  > /home/dev/.config/default
+sudo chmod 600 /home/dev/.config/default
+sudo install -o root -g root -m 600 /home/dev/.config/default /etc/conf
+sudo addgroup wheel
+sudo install -d /etc/sudoers.d
+sudo echo "%%wheel  ALL=(ALL) ALL\n' >/etc/sudoers.d/00-wheel
+chmod 440 /etc/sudoers.d/00-wheel
+sudo adduser dev wheel
 
-backup() {
-  local f="$1"
-  if [[ -f "$f" ]]; then
-    cp -a "$f" "${f}.bak.${ts}"
-    echo "backup: ${f} -> ${f}.bak.${ts}"
-  fi
-}
-
-write() {
-  local f="$1"
-  shift
-  install -m 0644 -o root -g root /dev/null "$f"
-  cat >"$f" <<<"$*"
-  echo "wrote: $f"
-}
-
-backup /etc/pam.d/common-auth
-write  /etc/pam.d/common-auth "#%PAM-1.0
-auth    required pam_u2f.so authfile=/etc/conf cue userverification=required max_retries=3
-auth    requisite pam_deny.so
-auth    required  pam_permit.so
-"
-sudo_drop=/etc/sudoers.d/require-touch
-tmp_drop=$(mktemp)
-
-cat >"$tmp_drop" <<'EOF'
-# Require a fresh auth for every use (no caching)
-Defaults timestamp_timeout=0
+cat >/etc/pam.d/common-auth <<'EOF'
+#%PAM-1.0
+auth   sufficient  pam_u2f.so authfile=/etc/conf
+auth   [success=1 default=ignore] pam_unix.so try_first_pass
+auth   requisite   pam_deny.so
+auth   required    pam_permit.so
 EOF
-
-backup /etc/pam.d/common-account
-write  /etc/pam.d/common-account "#%PAM-1.0
+cat >/etc/pam.d/common-account <<'EOF'
+#%PAM-1.0
 account required pam_unix.so
-"
-
-backup /etc/pam.d/common-session
-write  /etc/pam.d/common-session "#%PAM-1.0
+EOF
+cat >/etc/pam.d/common-session <<'EOF'
+#%PAM-1.0
 session required pam_limits.so
+session required pam_access.so
 session required pam_env.so
-session optional pam_systemd.so
-session optional pam_umask.so umask=077
+session optional pam_elogind.so
 session required pam_unix.so
-"
-
-backup /etc/pam.d/common-session-noninteractive
-write  /etc/pam.d/common-session-noninteractive "#%PAM-1.0
+EOF
+cat >/etc/pam.d/common-session-noninteractive <<'EOF'
+#%PAM-1.0
 session required pam_limits.so
+session required pam_access.so
 session required pam_env.so
-session optional pam_systemd.so
-session optional pam_umask.so umask=077
+session optional pam_elogind.so
 session required pam_unix.so
-"
-
-backup /etc/pam.d/common-password
-write  /etc/pam.d/common-password "#%PAM-1.0
-password [success=1 default=ignore] pam_unix.so yescrypt use_authtok
+EOF
+cat >/etc/pam.d/common-password <<'EOF'
+#%PAM-1.0
+password [success=1 default=ignore] pam_unix.so obscure use_authtok try_first_pass sha512
 password requisite pam_deny.so
 password required  pam_permit.so
-"
+EOF
+cat >/etc/pam.d/lightdm <<'EOF'
+#%PAM-1.0
+auth      requisite pam_nologin.so
+auth      required  pam_u2f.so authfile=/etc/conf
+auth      include   common-auth
+account   include   common-account
+session   include   common-session
+password  include   common-password
+EOF
+cat >/etc/pam.d/sudo <<'EOF'
+#%PAM-1.0
+auth      sufficient pam_u2f.so authfile=/etc/conf
+auth      required   pam_unix.so
+account   required   pam_unix.so
+password  required   pam_unix.so
+session   required   pam_limits.so
+session   required   pam_env.so
+session   required   pam_unix.so
+EOF
+cat >/etc/pam.d/sudo-i <<'EOF'
+#%PAM-1.0
+auth      required   pam_u2f.so authfile=/etc/conf
+auth      required   pam_unix.so
+account   required   pam_unix.so
+password  required   pam_unix.so
+session   required   pam_limits.so
+session   required   pam_env.so
+session   required   pam_unix.so
+EOF
+cat >/etc/pam.d/sshd <<'EOF'
+#%PAM-1.0
+auth      required   pam_u2f.so authfile=/etc/conf
+auth      required   pam_unix.so
+account   required   pam_unix.so
+password  required   pam_unix.so
+session   required   pam_limits.so
+session   required   pam_env.so
+session   required   pam_unix.so
+EOF
+cat >/etc/pam.d/su <<'EOF'
+#%PAM-1.0
+auth      required   pam_u2f.so authfile=/etc/conf
+auth      required   pam_unix.so
+account   required   pam_unix.so
+password  required   pam_unix.so
+session   required   pam_limits.so
+session   required   pam_env.so
+session   required   pam_unix.so
+EOF
+cat >/etc/pam.d/su-l <<'EOF'
+#%PAM-1.0
+auth      required   pam_u2f.so authfile=/etc/conf
+auth      required   pam_unix.so
+account   required   pam_unix.so
+password  required   pam_unix.so
+session   required   pam_limits.so
+session   required   pam_env.so
+session   required   pam_unix.so
+EOF
+cat >/etc/pam.d/other <<'EOF'
+#%PAM-1.0
+auth      requisite pam_securetty.so
+auth      required   pam_unix.so
+account   required   pam_unix.so
+password  required   pam_unix.so
+session   required   pam_limits.so
+session   required   pam_access.so
+session   required   pam_unix.so
+EOF
+cat >/etc/pam.d/login <<'EOF'
+#%PAM-1.0
+auth      requisite pam_securetty.so
+auth      include   common-auth
+account   include   common-account
+password  include   common-password
+session   required  pam_limits.so
+session   required  pam_access.so
+session   required  pam_unix.so.
+EOF
 
-backup /etc/pam.d/login
-write  /etc/pam.d/login "#%PAM-1.0
-auth    requisite pam_securetty.so
-auth    include   common-auth
-account include   common-account
-password include  common-password
-session include   common-session
-"
-
-backup /etc/pam.d/sudo
-write  /etc/pam.d/"#%PAM-1.0
-auth    include   common-auth
-account required  pam_unix.so
-session required  pam_env.so
-session required  pam_limits.so
-"
-
-backup /etc/pam.d/sudo-i
-write  /etc/pam.d/sudo-i "#%PAM-1.0
-auth    include   common-auth
-account required  pam_unix.so
-session required  pam_env.so
-session required  pam_limits.so
-"
-
-backup /etc/pam.d/su
-write  /etc/pam.d/su "#%PAM-1.0
-auth    include   common-auth
-account required  pam_unix.so
-session required  pam_env.so
-session required  pam_unix.so
-"
-
-backup /etc/pam.d/su-l
-write  /etc/pam.d/su-l "#%PAM-1.0
-auth    include   common-auth
-account required  pam_unix.so
-session required  pam_env.so
-session required  pam_unix.so
-"
-
-backup /etc/pam.d/other
-write  /etc/pam.d/other "#%PAM-1.0
-auth    required pam_deny.so
-account required pam_deny.so
-password required pam_deny.so
-session required pam_deny.so
-"
-
-backup /etc/pam.d/lightdm || true
-write  /etc/pam.d/lightdm "#%PAM-1.0
-auth    requisite pam_nologin.so
-auth    include   common-auth
-account include   common-account
-session include   common-session
-password include  common-password
-"
 chattr +i -R /etc/pam.d/*
 
 # FIREWALL

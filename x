@@ -4,6 +4,12 @@ set -euo pipefail
 
 # PRE CONFIG/AUDIT
 echo 'APT::Install-Recommends "false";' >> /etc/apt/apt.conf.d/98-hardening 
+echo 'DPkg
+  {
+      Pre-Invoke  { "mount /usr -o remount,rw" };
+      Post-Invoke { "mount /usr -o remount,ro" };
+  }; >> /etc/apt/apt.conf/99-remount
+
 apt update
 
 git clone https://github.com/ovh/debian-cis.git && cd debian-cis

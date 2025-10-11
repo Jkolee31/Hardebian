@@ -264,8 +264,7 @@ echo "/bin/bash" > /etc/shells
 passwd -l root
 echo "needs_root_rights=no" >> /etc/X11/Xwrapper.config
 dpkg-reconfigure xserver-xorg-legacy
-echo "multi on
-      order hosts" > /etc/host.conf
+echo "order hosts" >> /etc/host.conf
 
 sed -i 's/^# End of file*//' /etc/security/limits.conf
  { echo '*     hard  maxlogins 2'
@@ -274,13 +273,13 @@ sed -i 's/^# End of file*//' /etc/security/limits.conf
    echo '*     hard  nproc 100'  
    echo '# End of file'
   } >> /etc/security/limits.conf
-  echo "ProcessSizeMax=0
-  Storage=none" >> /etc/systemd/coredump.conf
-  echo "ulimit -c 0" >> /etc/profile
+echo "ProcessSizeMax=0
+Storage=none" >> /etc/systemd/coredump.conf
+echo "ulimit -c 0" >> /etc/profile
 
-sed -i -e 's/^DIR_MODE=.*/DIR_MODE=0750/' -e 's/^#DIR_MODE=.*/DIR_MODE=0750/' /etc/adduser.conf
-sed -i -e 's/^DSHELL=.*/DSHELL=\/usr\/sbin\/nologin/' -e 's/^#DSHELL=.*/DSHELL=\/usr\/sbin\/nologin/' /etc/adduser.conf
-sed -i -e 's/^USERGROUPS=.*/USERGROUPS=yes/' -e 's/^#USERGROUPS=.*/USERGROUPS=yes/' /etc/adduser.conf
+sed -i 's/^DIR_MODE=.*/DIR_MODE=0750/' -e 's/^#DIR_MODE=.*/DIR_MODE=0750/' /etc/adduser.conf
+sed -i 's/^DSHELL=.*/DSHELL=\/usr\/sbin\/nologin/' -e 's/^#DSHELL=.*/DSHELL=\/usr\/sbin\/nologin/' /etc/adduser.conf
+sed -i 's/^USERGROUPS=.*/USERGROUPS=yes/' -e 's/^#USERGROUPS=.*/USERGROUPS=yes/' /etc/adduser.conf
 sed -i 's/^SHELL=.*/SHELL=\/bin\/false/' /etc/default/useradd 
 sed -i 's/^# INACTIVE=.*/INACTIVE=30/' /etc/default/useradd
 sed -i 's/^.*LOG_OK_LOGINS.*/LOG_OK_LOGINS yes/' /etc/login.defs
@@ -467,17 +466,6 @@ sysctl --system
 
 # MOUNTS
 echo "
-/dev/mapper/lvg-root                      /                          ext4       discard,noatime,nodev,errors=remount-ro 0 1
-/dev/mapper/lvg-home                      /home                      ext4       discard,noatime,nodev,nosuid 0 2
-/dev/mapper/lvg-tmp                       /tmp                       ext4       discard,noatime,nodev,nosuid 0 2
-/dev/mapper/lvg-usr                       /usr                       ext4       discard,noatime,nodev,ro 0 2
-/dev/mapper/lvg-usr--local                /usr/local                 ext4       discard,noatime,nodev 0 2
-/dev/mapper/lvg-var                       /var                       ext4       discard,noatime,nodev,nosuid 0 2
-/dev/mapper/lvg-var--log                  /var/log                   ext4       discard,noatime,nodev,nosuid,noexec 0 2
-/dev/mapper/lvg-var--tmp                  /var/tmp                   ext4       discard,noatime,nodev,nosuid 0 2
-udev                                      /dev                       devtmpfs   nosuid,noexec,noatime 0 0  
-devpts                                    /dev/pts                   devpts     nosuid,noexec,noatime,newinstance,ptmxmode=0666 0 0 
-tmpfs                                     /home/dev/.cache           tmpfs      nosuid,nodev,noexec,uid=1000,gid=1000,mode=700 0 0
 proc                                      /proc                      proc       nosuid,nodev,noexec,hidepid=2 0 0
 securityfs                                /sys/kernel/security       securityfs nosuid,nodev,noexec 0 0
 pstore                                    /sys/fs/pstore             pstore     nosuid,nodev,noexec 0 0
@@ -485,8 +473,7 @@ systemd                                   /sys/fs/cgroup/systemd     cgroup     
 cgroup                                    /sys/fs/cgroup             tmpfs      nosuid,nodev,noexec 0 0
 efivarfs                                  /sys/firmware/efi/efivars  efivarfs   nosuid,nodev,noexec 0 0
 net_cls                                   /sys/fs/cgroup/net_cls     cgroup     nosuid,nodev,noexec 0 0
-tmpfs                                     /run                       tmpfs      nosuid,nodev,noexec,mode=0755 0 0
-tmpfs                                     /dev/shm                   tmpfs      nosuid,noexec,mode=1777 0 0
+tmpfs                                     /home/dev/.cache           tmpfs      nosuid,nodev,noexec,uid=1000,gid=1000,mode=700 0 0
 tmpfs                                     /tmp                       tmpfs      nosuid,nodev,noexec,mode=1777 0 0
 tmpfs                                     /var/tmp                   tmpfs      nosuid,nodev,noexec,mode=1777 0 0
 " >> /etc/fstab

@@ -8,7 +8,7 @@ echo 'DPkg
   {
       Pre-Invoke  { "mount /usr -o remount,rw" };
       Post-Invoke { "mount /usr -o remount,ro" };
-  }; >> /etc/apt/apt.conf/99-remount
+  };' >> /etc/apt/apt.conf/99-remount
 
 apt update
 

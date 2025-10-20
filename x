@@ -121,6 +121,14 @@ root ALL=(ALL) ALL
 dev  ALL=(ALL) ALL
 EOF
 
+cat >/etc/sudoers.d/antixers <<'EOF'
+dev ALL=(root) NOPASSWD: /sbin/poweroff
+dev ALL=(root) NOPASSWD: /sbin/reboot  
+dev ALL=(root) NOPASSWD: /usr/bin/apt update -y
+dev ALL=(root) NOPASSWD: /usr/bin/apt upgrade -y
+dev ALL=(root) NOPASSWD: /usr/sbin/nft list *
+EOF
+
 apt install -y  nftables pamu2fcfg libpam-u2f rsyslog chrony debsecan debsums acct wget gnupg lsb-release apt-transport-https unzip lynis macchanger unhide tcpd haveged lsb-release apt-transport-https auditd fonts-liberation extrepo gnome-terminal gnome-brave-icon-theme breeze-gtk-theme bibata* tcpd macchanger mousepad libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xserver-xorg xinit xserver-xorg-legacy xfce4-pulse* xfce4-whisk* opensnitch* python3-opensnitch*
 
 #U2F

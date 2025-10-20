@@ -19,6 +19,7 @@ bin/hardening.sh --audit-all --allow-unsupported-distribution
 bin/hardening.sh --set-hardening-level 5 --allow-unsupported-distribution
 bin/hardening.sh --apply --allow-unsupported-distribution
 bin/hardening.sh --apply --allow-unsupported-distribution
+bin/hardening.sh --apply --allow-unsupported-distribution
 
 sudo apt purge zram* yad* xfce4-wavelan-plugin xfce4-places-plugin xfce4-mount-plugin xfce4-genmon-plugin xfce4-fsguard-plugin xfce4-docklike-plugin xfce-superkey-mx wireless* libssh* ssh* spee* espeak* rsync* rpc* pp* pci* papirus*  openssh* orca* nfs* network-manager-pptp mx-usb-unmounter mx-goodies modemmanager wpasupplicant mobile* pmount* libspa-0.2-bluetooth libspa-0.2-libcamera libpocketsphinx3  libjansson4 libcamera0.0.3 acpi* anacron* avahi* atmel* bc bind9* blue* cron* ddm-mx dns* emacsen-common espeak* fastfetch featherpad* firefox* fonts-noto* fprint* isc-dhcp* iptables ufw virtualbox* lxc* docker* podman* xen* bochs* uml-utilities vagrant* ssh* openssh* acpi* anacron* samba winbind qemu-system* qemu-utils libvirt* virt-manager cron* avahi* cup* zram* print* rsync* virtual* sane* rpc* bind* nfs* blue* pp* spee* espeak* mobile* wireless* bc perl blue* inet* python3 apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra dictionaries-common doc-debian emacsen-common ethtool iamerican ibritish ienglish-common inetutils-telnet ispell task-english util-linux-locales wamerican tasksel tasksel-data vim-tiny vim-common
 
@@ -105,23 +106,21 @@ Defaults use_pty
 Defaults logfile="/var/log/sudo.log"
 Defaults secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 root    ALL=(ALL) ALL
-%sudo  ALL=(ALL) ALL
+dev  ALL=(ALL) ALL
 EOF
 
 apt install -y  pamu2fcfg libpam-u2f apparmor rsyslog chrony apparmor-utils apparmor-profiles apparmor-profiles-extra apt-listbugs apt-listchanges needrestart debsecan debsums acct wget gnupg lsb-release apt-transport-https unzip patch pulseaudio pulseaudio-utils pavucontrol alsa-utils rkhunter chkrootkit lynis macchanger unhide tcpd haveged lsb-release apt-transport-https auditd fonts-liberation extrepo gnome-terminal gnome-brave-icon-theme breeze-gtk-theme bibata* tcpd macchanger mousepad libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xserver-xorg xinit xserver-xorg-legacy xfce4-pulse* xfce4-whisk* lightdm lightdm-gtk-greeter lightdm-gtk-greeter-settings opensnitch* python3-opensnitch*
 
 #U2F
-#mkdir /home/demo/.config
-pamu2fcfg -u demo  > /home/demo/.config/default
-chmod 600 /home/demo/.config/default
-install -o root -g root -m 600 /home/demo/.config/default /etc/conf
+mkdir /home/dev/.config
+pamu2fcfg -u dev  > /home/dev/.config/default
+chmod 600 /home/dev/.config/default
+install -o root -g root -m 600 /home/dev/.config/default /etc/conf
 
 cat >/etc/pam.d/common-auth <<'EOF'
 #%PAM-1.0
-auth      sufficient pam_u2f.so authfile=/etc/conf
-auth      [success=1 default=ignore] pam_unix.so try_first_pass
+auth      required   pam_u2f.so authfile=/etc/conf
 auth      requisite  pam_deny.so
-auth      required   pam_permit.so
 EOF
 cat >/etc/pam.d/common-account <<'EOF'
 #%PAM-1.0
@@ -130,66 +129,60 @@ EOF
 cat >/etc/pam.d/common-session <<'EOF'
 #%PAM-1.0
 session   required   pam_limits.so
-session   required   pam_env.so
-session   optional   pam_systemd.so
 session   required   pam_unix.so
+session   optional   pam_mkhomedir.so umask=077
+session   optional   pam_umask.so umask=027
 EOF
 cat >/etc/pam.d/common-session-noninteractive <<'EOF'
 #%PAM-1.0
 session   required   pam_limits.so
-session   required   pam_env.so
-session   optional   pam_systemd.so
 session   required   pam_unix.so
+session   optional   pam_mkhomedir.so umask=077
+session   optional   pam_umask.so umask=027
 EOF
 cat >/etc/pam.d/common-password <<'EOF'
 #%PAM-1.0
 password  [success=1 default=ignore] pam_unix.so obscure use_authtok try_first_pass yescrypt
 password  requisite  pam_deny.so
-password  required   pam_permit.so
 EOF
 cat >/etc/pam.d/sudo <<'EOF'
 #%PAM-1.0
-auth      required   pam_u2f.so authfile=/etc/conf
+auth      include    common-auth
 account   required   pam_unix.so
 password  required   pam_unix.so
 session   required   pam_limits.so
-session   required   pam_env.so
 session   required   pam_unix.so
 EOF
 cat >/etc/pam.d/sudo-i <<'EOF'
 #%PAM-1.0
-auth      required   pam_u2f.so authfile=/etc/conf
+auth      include    common-auth
 account   required   pam_unix.so
 password  required   pam_unix.so
 session   required   pam_limits.so
-session   required   pam_env.so
 session   required   pam_unix.so
 EOF
 cat >/etc/pam.d/sshd <<'EOF'
 #%PAM-1.0
-auth      required   pam_u2f.so authfile=/etc/conf
+auth      include    common-auth
 account   required   pam_unix.so
 password  required   pam_unix.so
 session   required   pam_limits.so
-session   required   pam_env.so
 session   required   pam_unix.so
 EOF
 cat >/etc/pam.d/su <<'EOF'
 #%PAM-1.0
-auth      required   pam_u2f.so authfile=/etc/conf
+auth      include    common-auth
 account   required   pam_unix.so
 password  required   pam_unix.so
 session   required   pam_limits.so
-session   required   pam_env.so
 session   required   pam_unix.so
 EOF
 cat >/etc/pam.d/su-l <<'EOF'
 #%PAM-1.0
-auth      required   pam_u2f.so authfile=/etc/conf
+auth      include    common-auth
 account   required   pam_unix.so
 password  required   pam_unix.so
 session   required   pam_limits.so
-session   required   pam_env.so
 session   required   pam_unix.so
 EOF
 cat >/etc/pam.d/other <<'EOF'
@@ -201,14 +194,31 @@ session   required   pam_deny.so
 EOF
 cat >/etc/pam.d/login <<'EOF'
 #%PAM-1.0
-auth      requisite  pam_securetty.so
-auth      include    common-auth
-account   include    common-account
-password  include    common-password
-session   required   pam_limits.so
-session   required   pam_unix.so
+auth       required   pam_nologin.so
+auth       include    common-auth
+account    include    common-account
+password   include    common-password
+session    required   pam_limits.so
+session    include    common-session
+session    optional   pam_lastlog.so
 EOF
-
+cat >/etc/pam.d/lightdm <<'EOF'
+#%PAM-1.0
+auth       required   pam_nologin.so
+auth       include    common-auth
+account    include    common-account
+password   include    common-password
+session    include    common-session
+session    required   pam_limits.so
+session    optional   pam_lastlog.so
+EOF
+cat >/etc/pam.d/lightdm-greeter <<'EOF'
+#%PAM-1.0
+auth       required   pam_permit.so
+account    required   pam_permit.so
+password   required   pam_deny.so
+session    required   pam_permit.so
+EOF
 chattr +i -R /etc/pam.d/*
 
 # FIREWALL
@@ -257,11 +267,12 @@ dpkg-reconfigure xserver-xorg-legacy
 echo "order hosts" >> /etc/host.conf
 
 sed -i 's/^# End of file*//' /etc/security/limits.conf
- { echo '*     hard  maxlogins 2'
-   echo 'root  hard  maxlogins 10'
+ { echo '*     hard  maxlogins 1'
+   echo 'root  hard  maxlogins 5'
    echo '*     hard  core 0'
-   echo '*     hard  nproc 100'  
-   echo '# End of file'
+   echo '*     soft  core 0'
+   echo '*     hard  nproc 200'
+   echo '*     soft  nproc 200'
   } >> /etc/security/limits.conf
 echo "ProcessSizeMax=0
 Storage=none" >> /etc/systemd/coredump.conf

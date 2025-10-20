@@ -4,10 +4,19 @@ set -euo pipefail
 
 
 # PRE CONFIG/AUDIT
-echo 'APT::Install-Recommends "false";' >> /etc/apt/apt.conf.d/98-hardening 
+sudo echo 'APT::Get::AllowUnauthenticated "false";' >> /etc/apt/apt.conf.d/98-hardening
+sudo echo 'Acquire::http::AllowRedirect "false";' >> /etc/apt/apt.conf.d/98-hardening
+sudo echo 'APT::Install-Suggests "false";' >> /etc/apt/apt.conf.d/98-hardening 
+sudo echo 'APT::Install-Recommends "false";' >> /etc/apt/apt.conf.d/98-hardening 
+echo 'DPkg
+  {
+      Pre-Invoke  { "mount /usr -o remount,rw" };
+  };' >> /etc/apt/apt.conf.d/99-remount
 
 apt update
-apt install -y git
+
+apt update
+apt install -y git curl wget apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra
 git clone https://github.com/ovh/debian-cis.git && cd debian-cis
 cp debian/default /etc/default/cis-hardening
 sed -i "s#CIS_LIB_DIR=.*#CIS_LIB_DIR='$(pwd)'/lib#" /etc/default/cis-hardening
@@ -17,11 +26,14 @@ sed -i "s#CIS_TMP_DIR=.*#CIS_TMP_DIR='$(pwd)'/tmp#" /etc/default/cis-hardening
 sed -i "s#CIS_VERSIONS_DIR=.*#CIS_VERSIONS_DIR='$(pwd)'/versions#" /etc/default/cis-hardening
 bin/hardening.sh --audit-all --allow-unsupported-distribution
 bin/hardening.sh --set-hardening-level 5 --allow-unsupported-distribution
+rm /home/dev/debian-cis/bin/hardening/disable_print_server.sh
+rm /home/dev/debian-cis/bin/hardening/disable_avahi_server.sh
+rm /home/dev/debian-cis/bin/hardening/disable_xwindow_system.sh
 bin/hardening.sh --apply --allow-unsupported-distribution
 bin/hardening.sh --apply --allow-unsupported-distribution
 bin/hardening.sh --apply --allow-unsupported-distribution
 
-sudo apt purge zram* yad* xfce4-wavelan-plugin xfce4-places-plugin xfce4-mount-plugin xfce4-genmon-plugin xfce4-fsguard-plugin xfce4-docklike-plugin xfce-superkey-mx wireless* libssh* ssh* spee* espeak* rsync* rpc* pp* pci* papirus*  openssh* orca* nfs* network-manager-pptp mx-usb-unmounter mx-goodies modemmanager wpasupplicant mobile* pmount* libspa-0.2-bluetooth libspa-0.2-libcamera libpocketsphinx3  libjansson4 libcamera0.0.3 acpi* anacron* avahi* atmel* bc bind9* blue* cron* ddm-mx dns* emacsen-common espeak* fastfetch featherpad* firefox* fonts-noto* fprint* isc-dhcp* iptables ufw virtualbox* lxc* docker* podman* xen* bochs* uml-utilities vagrant* ssh* openssh* acpi* anacron* samba winbind qemu-system* qemu-utils libvirt* virt-manager cron* avahi* cup* zram* print* rsync* virtual* sane* rpc* bind* nfs* blue* pp* spee* espeak* mobile* wireless* bc perl blue* inet* python3 apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra dictionaries-common doc-debian emacsen-common ethtool iamerican ibritish ienglish-common inetutils-telnet ispell task-english util-linux-locales wamerican tasksel tasksel-data vim-tiny vim-common
+sudo apt purge zram* yad* xfce4-wavelan-plugin xfce4-places-plugin xfce4-mount-plugin xfce4-genmon-plugin xfce4-fsguard-plugin xfce4-docklike-plugin xfce-superkey-mx pci* papirus* orca* nfs* network-manager* mx-usb-unmounter mx-goodies pmount* libspa-0.2-bluetooth libspa-0.2-libcamera libpocketsphinx3  libjansson4 acpi* anacron* cron* avahi* atmel* bc bind9* ddm-mx dns* fastfetch featherpad* firefox* fonts-noto* fprint* isc-dhcp* iptables* ufw lxc* docker* podman* xen* bochs* uml* vagrant* libssh* ssh* openssh* acpi* samba* winbind* qemu* libvirt* virt* cron* avahi* cup* zram* print* rsync* virtual* sane* rpc* bind* nfs* blue* pp* spee* espeak* mobile* wireless* bc perl blue* dictionaries-common doc-debian emacs* ethtool iamerican ibritish ienglish-common inet* ispell task-english util-linux-locales wamerican tasksel* vim*
 
 install -d /etc/apt/preferences.d
 cat >/etc/apt/preferences.d/deny-ssh.pref <<'EOF'
@@ -105,18 +117,17 @@ Defaults passwd_tries=2
 Defaults use_pty
 Defaults logfile="/var/log/sudo.log"
 Defaults secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-root    ALL=(ALL) ALL
+root ALL=(ALL) ALL
 dev  ALL=(ALL) ALL
 EOF
 
-apt install -y  pamu2fcfg libpam-u2f apparmor rsyslog chrony apparmor-utils apparmor-profiles apparmor-profiles-extra apt-listbugs apt-listchanges needrestart debsecan debsums acct wget gnupg lsb-release apt-transport-https unzip patch pulseaudio pulseaudio-utils pavucontrol alsa-utils rkhunter chkrootkit lynis macchanger unhide tcpd haveged lsb-release apt-transport-https auditd fonts-liberation extrepo gnome-terminal gnome-brave-icon-theme breeze-gtk-theme bibata* tcpd macchanger mousepad libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xserver-xorg xinit xserver-xorg-legacy xfce4-pulse* xfce4-whisk* lightdm lightdm-gtk-greeter lightdm-gtk-greeter-settings opensnitch* python3-opensnitch*
+apt install -y  nftables pamu2fcfg libpam-u2f rsyslog chrony debsecan debsums acct wget gnupg lsb-release apt-transport-https unzip lynis macchanger unhide tcpd haveged lsb-release apt-transport-https auditd fonts-liberation extrepo gnome-terminal gnome-brave-icon-theme breeze-gtk-theme bibata* tcpd macchanger mousepad libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xserver-xorg xinit xserver-xorg-legacy xfce4-pulse* xfce4-whisk* opensnitch* python3-opensnitch*
 
 #U2F
 #mkdir /home/dev/.config
 pamu2fcfg -u dev > /home/dev/.config/default
 chmod 600 /home/dev/.config/default
 install -o root -g root -m 600 /home/dev/.config/default /etc/conf
-
 
 cat >/etc/pam.d/chfn <<'EOF'
 #%PAM-1.0
@@ -233,7 +244,7 @@ auth      requisite   pam_nologin.so
 session   required    pam_env.so readenv=1
 session   required    pam_env.so readenv=1 envfile=/etc/default/locale
 auth      include     common-auth
--auth     optional    pam_gnome_keyring.so
+auth      optional    pam_gnome_keyring.so
 account   include     common-account
 session   [success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux.so close
 session   required    pam_limits.so
@@ -295,7 +306,7 @@ EOF
 chattr +i -R /etc/pam.d/*
 
 # FIREWALL
-cat >/etc/nftables.conf <<EOF
+cat >/etc/nftables.conf <<'EOF'
 flush ruleset
 
 table inet filter {
@@ -323,19 +334,20 @@ table inet filter {
 
   }
 }
-
 EOF
+
 nft -f /etc/nftables.conf
 chattr +i /etc/nftables.conf
 
 # MISC HARDENING 
 echo "/bin/bash" > /etc/shells
 passwd -l root
+echo "needs_root_rights=no" >> /etc/X11/Xwrapper.config
+dpkg-reconfigure xserver-xorg-legacy
 echo "order hosts" >> /etc/host.conf
 
 sed -i 's/^# End of file*//' /etc/security/limits.d/limits.conf
- { echo '*     hard  maxlogins 1'
-   echo 'root  hard  maxlogins 5'
+ { echo '*     hard  maxlogins 2'
    echo '*     hard  core 0'
    echo '*     soft  core 0'
    echo '*     hard  nproc 200'
@@ -345,10 +357,13 @@ echo "ProcessSizeMax=0
 Storage=none" >> /etc/systemd/coredump.conf
 echo "ulimit -c 0" >> /etc/profile
 
-sed -i 's/^DSHELL=.*/DSHELL=\/usr\/sbin\/nologin/' -e 's/^#DSHELL=.*/DSHELL=\/usr\/sbin\/nologin/' /etc/adduser.conf
-sed -i 's/^SHELL=.*/SHELL=\/usr\/sbin\/nologin/' /etc/default/useradd 
-echo "umask 027" >> /etc/profile
-echo "umask 027" >> /etc/bash.bashrc
+sed -i -e 's/^DSHELL=.*/DSHELL=\/usr\/sbin\/nologin/' -e 's/^#DSHELL=.*/DSHELL=\/bin\/false/' /etc/adduser.conf
+sed -i 's/^SHELL=.*/SHELL=\/usr\/sbin\/nologin/' /etc/default/useradd
+sed -i 's/ENCRYPT_METHOD.*/ENCRYPT_METHOD YESCRYPT/' /etc/login.defs
+sed -i 's/^UMASK.*/UMASK 077/' /etc/login.defs
+sed -i 's/umask.*/umask 077/g' /etc/init.d/rc
+echo "umask 077" >> /etc/profile
+echo "umask 077" >> /etc/bash.bashrc
 echo "ALL: LOCAL, 127.0.0.1" >> /etc/hosts.allow
 echo "ALL: ALL" > /etc/hosts.deny
 chmod 644 /etc/hosts.allow
@@ -400,82 +415,6 @@ blacklist vmmon
 install vmmon /bin/false
 blacklist xen
 install xen /bin/false
-blacklist dccp
-install dccp /bin/false
-blacklist sctp
-install sctp /bin/false
-blacklist rds
-install rds /bin/false
-blacklist tipc
-install tipc /bin/false
-blacklist ax25
-install ax25 /bin/false
-blacklist netrom
-install netrom /bin/false
-blacklist x25
-install x25 /bin/false
-blacklist rose
-install rose /bin/false
-blacklist decnet
-install decnet /bin/false
-blacklist econet
-install econet /bin/false
-blacklist af_802154
-install af_802154 /bin/false
-blacklist ipx
-install ipx /bin/false
-blacklist appletalk
-install appletalk /bin/false
-blacklist psnap
-install psnap /bin/false
-blacklist p8023
-install p8023 /bin/false
-blacklist p8022
-install p8022 /bin/false
-blacklist can
-install can /bin/false
-blacklist atm
-install atm /bin/false
-blacklist cramfs
-install cramfs /bin/false
-blacklist freevxfs
-install freevxfs /bin/false
-blacklist jffs2
-install jffs2 /bin/false
-blacklist hfs
-install hfs /bin/false
-blacklist hfsplus
-install hfsplus /bin/false
-blacklist squashfs
-install squashfs /bin/false
-blacklist udf
-install udf /bin/false
-blacklist cifs
-install cifs /bin/false
-blacklist nfs
-install nfs /bin/false
-blacklist nfsd 
-install nfsd /bin/false
-blacklist nfsv3
-install nfsv3 /bin/false
-blacklist nfsv4
-install nfsv4 /bin/false
-blacklist lockd
-install lockd /bin/false
-blacklist ksmbd
-install ksmbd /bin/false
-blacklist gfs2
-install gfs2 /bin/false
-blacklist bluetooth
-install bluetooth /bin/false
-blacklist btusb
-install btusb /bin/false
-blacklist firewire-core
-install firewire-core /bin/false
-blacklist thunderbolt
-install thunderbolt /bin/false
-blacklist usb-storage
-install usb-storage /bin/false
 EOF
 
 # KERNEL
@@ -525,13 +464,6 @@ sysctl --system
 # MOUNTS
 echo "
 proc                                      /proc                      proc       nosuid,nodev,noexec,hidepid=2 0 0
-securityfs                                /sys/kernel/security       securityfs nosuid,nodev,noexec 0 0
-pstore                                    /sys/fs/pstore             pstore     nosuid,nodev,noexec 0 0
-systemd                                   /sys/fs/cgroup/systemd     cgroup     nosuid,nodev,noexec 0 0
-cgroup                                    /sys/fs/cgroup             tmpfs      nosuid,nodev,noexec 0 0
-efivarfs                                  /sys/firmware/efi/efivars  efivarfs   nosuid,nodev,noexec 0 0
-net_cls                                   /sys/fs/cgroup/net_cls     cgroup     nosuid,nodev,noexec 0 0
-tmpfs                                     /home/dev/.cache           tmpfs      nosuid,nodev,noexec,uid=1000,gid=1000,mode=700 0 0
 tmpfs                                     /tmp                       tmpfs      nosuid,nodev,noexec,mode=1777 0 0
 tmpfs                                     /var/tmp                   tmpfs      nosuid,nodev,noexec,mode=1777 0 0
 " >> /etc/fstab

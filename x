@@ -2,16 +2,12 @@
 
 set -euo pipefail
 
+
 # PRE CONFIG/AUDIT
 echo 'APT::Install-Recommends "false";' >> /etc/apt/apt.conf.d/98-hardening 
-echo 'DPkg
-  {
-      Pre-Invoke  { "mount /usr -o remount,rw" };
-      Post-Invoke { "mount /usr -o remount,ro" };
-  };' >> /etc/apt/apt.conf/99-remount
 
 apt update
-
+apt install -y git
 git clone https://github.com/ovh/debian-cis.git && cd debian-cis
 cp debian/default /etc/default/cis-hardening
 sed -i "s#CIS_LIB_DIR=.*#CIS_LIB_DIR='$(pwd)'/lib#" /etc/default/cis-hardening
@@ -23,9 +19,8 @@ bin/hardening.sh --audit-all --allow-unsupported-distribution
 bin/hardening.sh --set-hardening-level 5 --allow-unsupported-distribution
 bin/hardening.sh --apply --allow-unsupported-distribution
 bin/hardening.sh --apply --allow-unsupported-distribution
-bin/hardening.sh --apply --allow-unsupported-distribution
 
-apt purge iptables ufw virtualbox* lxc* docker* podman* xen* bochs* uml-utilities vagrant* ssh* openssh* acpi* anacron* samba winbind qemu-system* qemu-utils libvirt* virt-manager cron* avahi* cup* zram* print* rsync* virtual* sane* rpc* bind* nfs* blue* pp* mesa* spee* espeak* mobile* wireless* bc perl blue* inet* python3 apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra dictionaries-common doc-debian emacsen-common ethtool iamerican ibritish ienglish-common inetutils-telnet ispell task-english util-linux-locales wamerican wtmpdb zerofree tasksel tasksel-data vim-tiny vim-common
+sudo apt purge zram* yad* xfce4-wavelan-plugin xfce4-places-plugin xfce4-mount-plugin xfce4-genmon-plugin xfce4-fsguard-plugin xfce4-docklike-plugin xfce-superkey-mx wireless* libssh* ssh* spee* espeak* rsync* rpc* pp* pci* papirus*  openssh* orca* nfs* network-manager-pptp mx-usb-unmounter mx-goodies modemmanager wpasupplicant mobile* pmount* libspa-0.2-bluetooth libspa-0.2-libcamera libpocketsphinx3  libjansson4 libcamera0.0.3 acpi* anacron* avahi* atmel* bc bind9* blue* cron* ddm-mx dns* emacsen-common espeak* fastfetch featherpad* firefox* fonts-noto* fprint* isc-dhcp* iptables ufw virtualbox* lxc* docker* podman* xen* bochs* uml-utilities vagrant* ssh* openssh* acpi* anacron* samba winbind qemu-system* qemu-utils libvirt* virt-manager cron* avahi* cup* zram* print* rsync* virtual* sane* rpc* bind* nfs* blue* pp* spee* espeak* mobile* wireless* bc perl blue* inet* python3 apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra dictionaries-common doc-debian emacsen-common ethtool iamerican ibritish ienglish-common inetutils-telnet ispell task-english util-linux-locales wamerican tasksel tasksel-data vim-tiny vim-common
 
 install -d /etc/apt/preferences.d
 cat >/etc/apt/preferences.d/deny-ssh.pref <<'EOF'
@@ -38,10 +33,6 @@ Pin: release *
 Pin-Priority: -1
 
 Package: ssh*
-Pin: release *
-Pin-Priority: -1
-
-Package: libssh*
 Pin: release *
 Pin-Priority: -1
 
@@ -114,23 +105,16 @@ Defaults use_pty
 Defaults logfile="/var/log/sudo.log"
 Defaults secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 root    ALL=(ALL) ALL
-%wheel  ALL=(ALL) ALL
+%sudo  ALL=(ALL) ALL
 EOF
-
 
 apt install -y  pamu2fcfg libpam-u2f apparmor rsyslog chrony apparmor-utils apparmor-profiles apparmor-profiles-extra apt-listbugs apt-listchanges needrestart debsecan debsums acct wget gnupg lsb-release apt-transport-https unzip patch pulseaudio pulseaudio-utils pavucontrol alsa-utils rkhunter chkrootkit lynis macchanger unhide tcpd haveged lsb-release apt-transport-https auditd fonts-liberation extrepo gnome-terminal gnome-brave-icon-theme breeze-gtk-theme bibata* tcpd macchanger mousepad libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xserver-xorg xinit xserver-xorg-legacy xfce4-pulse* xfce4-whisk* lightdm lightdm-gtk-greeter lightdm-gtk-greeter-settings opensnitch* python3-opensnitch*
 
 #U2F
-mkdir /home/dev/.config
-pamu2fcfg > /home/dev/.config/default
-sed -i 's/.*:/dev:/' /home/dev/.config/default
-chmod 600 /home/dev/.config/default
-install -o root -g root -m 600 /home/dev/.config/default /etc/conf
-addgroup wheel
-install -d /etc/sudoers.d
-echo "%wheel  ALL=(ALL) ALL" >/etc/sudoers.d/00wheel
-chmod 440 /etc/sudoers.d/00wheel
-adduser dev wheel
+#mkdir /home/demo/.config
+pamu2fcfg -u demo  > /home/demo/.config/default
+chmod 600 /home/demo/.config/default
+install -o root -g root -m 600 /home/demo/.config/default /etc/conf
 
 cat >/etc/pam.d/common-auth <<'EOF'
 #%PAM-1.0

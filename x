@@ -256,42 +256,26 @@ nft -f /etc/nftables.conf
 chattr +i /etc/nftables.conf
 
 # MISC HARDENING 
-touch /etc/securetty
-chown  root:root /etc/securetty
-chmod  400 /etc/securetty
-echo "console" >  etc/securetty
 echo "/bin/bash" > /etc/shells
 passwd -l root
-echo "needs_root_rights=no" >> /etc/X11/Xwrapper.config
-dpkg-reconfigure xserver-xorg-legacy
 echo "order hosts" >> /etc/host.conf
 
-sed -i 's/^# End of file*//' /etc/security/limits.conf
+sed -i 's/^# End of file*//' /etc/security/limits.d/limits.conf
  { echo '*     hard  maxlogins 1'
    echo 'root  hard  maxlogins 5'
    echo '*     hard  core 0'
    echo '*     soft  core 0'
    echo '*     hard  nproc 200'
    echo '*     soft  nproc 200'
-  } >> /etc/security/limits.conf
+  } >> /etc/security/limits.d/limits.conf
 echo "ProcessSizeMax=0
 Storage=none" >> /etc/systemd/coredump.conf
 echo "ulimit -c 0" >> /etc/profile
 
-sed -i 's/^DIR_MODE=.*/DIR_MODE=0750/' -e 's/^#DIR_MODE=.*/DIR_MODE=0750/' /etc/adduser.conf
 sed -i 's/^DSHELL=.*/DSHELL=\/usr\/sbin\/nologin/' -e 's/^#DSHELL=.*/DSHELL=\/usr\/sbin\/nologin/' /etc/adduser.conf
-sed -i 's/^USERGROUPS=.*/USERGROUPS=yes/' -e 's/^#USERGROUPS=.*/USERGROUPS=yes/' /etc/adduser.conf
-sed -i 's/^SHELL=.*/SHELL=\/bin\/false/' /etc/default/useradd 
-sed -i 's/^# INACTIVE=.*/INACTIVE=30/' /etc/default/useradd
-sed -i 's/^.*LOG_OK_LOGINS.*/LOG_OK_LOGINS yes/' /etc/login.defs
-sed -i 's/^PASS_MIN_DAYS.*/PASS_MIN_DAYS 1/' /etc/login.defs
-sed -i 's/^PASS_MAX_DAYS.*/PASS_MAX_DAYS 60/' /etc/login.defs
-sed -i 's/DEFAULT_HOME.*/DEFAULT_HOME no/' /etc/login.defs
-sed -i 's/ENCRYPT_METHOD.*/ENCRYPT_METHOD YESCRYPT/' /etc/login.defs
-sed -i 's/USERGROUPS_ENAB.*/USERGROUPS_ENAB no/' /etc/login.defs
-sed -i 's/umask 077/umask 027/g' /etc/init.d/rc
-echo "umask 077" >> /etc/profile
-echo "umask 077" >> /etc/bash.bashrc
+sed -i 's/^SHELL=.*/SHELL=\/usr\/sbin\/nologin/' /etc/default/useradd 
+echo "umask 027" >> /etc/profile
+echo "umask 027" >> /etc/bash.bashrc
 echo "ALL: LOCAL, 127.0.0.1" >> /etc/hosts.allow
 echo "ALL: ALL" > /etc/hosts.deny
 chmod 644 /etc/hosts.allow

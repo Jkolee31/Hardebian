@@ -100,7 +100,7 @@ Pin-Priority: -1
 EOF
 apt update
 
-  cat >/etc/sudoers <<'EOF'
+cat >/etc/sudoers <<'EOF'
 Defaults passwd_tries=2
 Defaults use_pty
 Defaults logfile="/var/log/sudo.log"
@@ -112,113 +112,186 @@ EOF
 apt install -y  pamu2fcfg libpam-u2f apparmor rsyslog chrony apparmor-utils apparmor-profiles apparmor-profiles-extra apt-listbugs apt-listchanges needrestart debsecan debsums acct wget gnupg lsb-release apt-transport-https unzip patch pulseaudio pulseaudio-utils pavucontrol alsa-utils rkhunter chkrootkit lynis macchanger unhide tcpd haveged lsb-release apt-transport-https auditd fonts-liberation extrepo gnome-terminal gnome-brave-icon-theme breeze-gtk-theme bibata* tcpd macchanger mousepad libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xserver-xorg xinit xserver-xorg-legacy xfce4-pulse* xfce4-whisk* lightdm lightdm-gtk-greeter lightdm-gtk-greeter-settings opensnitch* python3-opensnitch*
 
 #U2F
-mkdir /home/dev/.config
-pamu2fcfg -u dev  > /home/dev/.config/default
+#mkdir /home/dev/.config
+pamu2fcfg -u dev > /home/dev/.config/default
 chmod 600 /home/dev/.config/default
 install -o root -g root -m 600 /home/dev/.config/default /etc/conf
 
-cat >/etc/pam.d/common-auth <<'EOF'
+
+cat >/etc/pam.d/chfn <<'EOF'
 #%PAM-1.0
-auth      required   pam_u2f.so authfile=/etc/conf
-auth      requisite  pam_deny.so
+auth      sufficient  pam_rootok.so
+auth      include     common-auth
+account   include     common-account
+session   include     common-session
+EOF
+cat >/etc/pam.d/chpasswd <<'EOF'
+#%PAM-1.0
+password  include     common-password
+EOF
+cat >/etc/pam.d/chsh <<'EOF'
+#%PAM-1.0
+auth      required    pam_shells.so
+auth      sufficient  pam_rootok.so
+auth      include     common-auth
+account   include     common-account
+session   include     common-session
 EOF
 cat >/etc/pam.d/common-account <<'EOF'
 #%PAM-1.0
-account   required   pam_unix.so
-EOF
-cat >/etc/pam.d/common-session <<'EOF'
-#%PAM-1.0
-session   required   pam_limits.so
-session   required   pam_unix.so
-session   optional   pam_mkhomedir.so umask=077
-session   optional   pam_umask.so umask=027
-EOF
-cat >/etc/pam.d/common-session-noninteractive <<'EOF'
-#%PAM-1.0
-session   required   pam_limits.so
-session   required   pam_unix.so
-session   optional   pam_mkhomedir.so umask=077
-session   optional   pam_umask.so umask=027
+account   required    pam_faillock.so 
+account   [success=1  new_authtok_reqd=done default=ignore]  pam_unix.so 
+account   requisite   pam_deny.so
+account   required    pam_permit.so
 EOF
 cat >/etc/pam.d/common-password <<'EOF'
 #%PAM-1.0
-password  [success=1 default=ignore] pam_unix.so obscure use_authtok try_first_pass yescrypt
-password  requisite  pam_deny.so
+password  requisite   pam_pwquality.so retry=3
+password  [success=1  default=ignore]  pam_unix.so obscure use_authtok try_first_pass yescrypt
+password  requisite   pam_deny.so
+password  required    pam_permit.so
+password  optional    pam_gnome_keyring.so 
+EOF
+cat >/etc/pam.d/common-auth <<'EOF'
+#%PAM-1.0
+auth      sufficient  pam_u2f.so authfile=/etc/conf
+auth      requisite   pam_faillock.so preauth
+auth      [success=2  default=ignore]  pam_unix.so try_first_pass
+auth      [default=die] pam_faillock.so authfail
+auth      requisite   pam_deny.so
+auth      required    pam_permit.so
+EOF
+cat >/etc/pam.d/common-session <<'EOF'
+#%PAM-1.0
+session   required    pam_limits.so
+session   required    pam_env.so
+session   optional    pam_elogind.so
+session   required    pam_unix.so
+EOF
+cat >/etc/pam.d/common-session-noninteractive <<'EOF'
+#%PAM-1.0
+session   required    pam_limits.so
+session   required    pam_env.so
+session   optional    pam_elogind.so
+session   required    pam_unix.so
 EOF
 cat >/etc/pam.d/sudo <<'EOF'
 #%PAM-1.0
-auth      include    common-auth
-account   required   pam_unix.so
-password  required   pam_unix.so
-session   required   pam_limits.so
-session   required   pam_unix.so
+auth      include     common-auth
+account   include     common-account
+password  include     common-password
+session   include     common-session
 EOF
 cat >/etc/pam.d/sudo-i <<'EOF'
 #%PAM-1.0
-auth      include    common-auth
-account   required   pam_unix.so
-password  required   pam_unix.so
-session   required   pam_limits.so
-session   required   pam_unix.so
+auth      include     common-auth
+account   include     common-account
+password  include     common-password
+session   include     common-session
 EOF
 cat >/etc/pam.d/sshd <<'EOF'
 #%PAM-1.0
-auth      include    common-auth
-account   required   pam_unix.so
-password  required   pam_unix.so
-session   required   pam_limits.so
-session   required   pam_unix.so
+auth      include     common-auth
+account   include     common-account
+password  include     common-password
+session   include     common-session
 EOF
 cat >/etc/pam.d/su <<'EOF'
 #%PAM-1.0
-auth      include    common-auth
-account   required   pam_unix.so
-password  required   pam_unix.so
-session   required   pam_limits.so
-session   required   pam_unix.so
+auth      include     common-auth
+account   include     common-account
+password  include     common-password
+session   include     common-session
 EOF
 cat >/etc/pam.d/su-l <<'EOF'
 #%PAM-1.0
-auth      include    common-auth
-account   required   pam_unix.so
-password  required   pam_unix.so
-session   required   pam_limits.so
-session   required   pam_unix.so
+auth      include     common-auth
+account   include     common-account
+password  include     common-password
+session   include     common-session
 EOF
 cat >/etc/pam.d/other <<'EOF'
 #%PAM-1.0
-auth      required   pam_deny.so
-account   required   pam_deny.so
-password  required   pam_deny.so
-session   required   pam_deny.so
+auth      required    pam_deny.so
+account   required    pam_deny.so
+password  required    pam_deny.so
+session   required    pam_deny.so
 EOF
-cat >/etc/pam.d/login <<'EOF'
+cat >/etc/pam.d/elogind-user <<'EOF'
 #%PAM-1.0
-auth       required   pam_nologin.so
-auth       include    common-auth
-account    include    common-account
-password   include    common-password
-session    required   pam_limits.so
-session    include    common-session
-session    optional   pam_lastlog.so
+account   include     common-account
+session   required    pam_selinux.so close
+session   required    pam_selinux.so nottys open
+session   required    pam_loginuid.so
+session   required    pam_limits.so
+session   include     common-session-noninteractive
+session   optional    pam_elogind.so
 EOF
 cat >/etc/pam.d/lightdm <<'EOF'
 #%PAM-1.0
-auth       required   pam_nologin.so
-auth       include    common-auth
-account    include    common-account
-password   include    common-password
-session    include    common-session
-session    required   pam_limits.so
-session    optional   pam_lastlog.so
+auth      requisite   pam_nologin.so
+session   required    pam_env.so readenv=1
+session   required    pam_env.so readenv=1 envfile=/etc/default/locale
+auth      include     common-auth
+-auth     optional    pam_gnome_keyring.so
+account   include     common-account
+session   [success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux.so close
+session   required    pam_limits.so
+session   required    pam_loginuid.so
+session   include     common-session
+password  include     common-password
 EOF
 cat >/etc/pam.d/lightdm-greeter <<'EOF'
 #%PAM-1.0
-auth       required   pam_permit.so
-account    required   pam_permit.so
-password   required   pam_deny.so
-session    required   pam_permit.so
+auth      required    pam_permit.so
+account   required    pam_permit.so
+password  required    pam_deny.so
+session   required    pam_unix.so
+session   optional    pam_systemd.so
+session   required    pam_env.so readenv=1
+session   required    pam_env.so readenv=1 envfile=/etc/default/locale
+session   include     common-session
 EOF
+cat >/etc/pam.d/login <<'EOF'
+#%PAM-1.0
+auth      optional    pam_faildelay.so  delay=3000000
+auth      requisite   pam_nologin.so
+session   [success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux.so close
+session   required    pam_loginuid.so
+session   [success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux.so open
+session   required    pam_env.so readenv=1
+session   required    pam_env.so readenv=1 envfile=/etc/default/locale
+auth      include     common-auth
+account   required    pam_access.so
+session   required    pam_limits.so
+session   optional    pam_keyinit.so force revoke
+account   include     common-account
+session   include     common-session
+password  include     common-password
+EOF
+cat >/etc/pam.d/newusers <<'EOF'
+#%PAM-1.0
+password  include     common-password
+EOF
+cat >/etc/pam.d/passwd <<'EOF'
+#%PAM-1.0
+password  include     common-password
+EOF
+cat >/etc/pam.d/runuser <<'EOF'
+#%PAM-1.0
+auth	  sufficient  pam_rootok.so
+session	  optional    pam_keyinit.so revoke
+session	  required    pam_limits.so
+session	  required    pam_unix.so
+EOF
+cat >/etc/pam.d/runuser-l <<'EOF'
+#%PAM-1.0
+auth	  include     runuser
+session	  optional    pam_keyinit.so force revoke
+-session  optional    pam_systemd.so
+session	  include     runuser
+EOF
+
 chattr +i -R /etc/pam.d/*
 
 # FIREWALL

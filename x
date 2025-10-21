@@ -353,7 +353,7 @@ EOF
 
 cat >/etc/pam.d/runuser <<'EOF'
 #%PAM-1.0
-auth	  sufficient  pam_rootok.so
+auth	    sufficient  pam_rootok.so
 session	  optional    pam_keyinit.so revoke
 session	  required    pam_limits.so
 session	  required    pam_unix.so
@@ -403,8 +403,6 @@ EOF
 nft -f /etc/nftables.conf
 chattr +i /etc/nftables.conf
 
-
-
 # PRE CONFIG/AUDIT
 echo 'APT::Get::AllowUnauthenticated "false";' >> /etc/apt/apt.conf.d/98-hardening
 echo 'APT::Install-Suggests "false";' >> /etc/apt/apt.conf.d/98-hardening 
@@ -449,6 +447,7 @@ dev ALL=(root) NOPASSWD: /usr/bin/apt upgrade -y
 dev ALL=(root) NOPASSWD: /usr/sbin/nft list *
 EOF
 
+#FINAL INSTALL (NEW AND/OR INCASE ANYTHING WAS DELETED)
 apt install -y  nftables pamu2fcfg libpam-u2f rsyslog chrony debsecan debsums acct wget gnupg lsb-release apt-transport-https unzip lynis macchanger unhide tcpd haveged lsb-release apt-transport-https auditd fonts-liberation extrepo gnome-terminal gnome-brave-icon-theme breeze-gtk-theme bibata* tcpd macchanger mousepad libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xserver-xorg xinit xserver-xorg-legacy xfce4-pulse* xfce4-whisk* opensnitch* python3-opensnitch*
 
 
@@ -470,7 +469,7 @@ echo "ProcessSizeMax=0
 Storage=none" >> /etc/systemd/coredump.conf
 echo "ulimit -c 0" >> /etc/profile
 
-sed -i -e 's/^DSHELL=.*/DSHELL=\/usr\/sbin\/nologin/' -e 's/^#DSHELL=.*/DSHELL=\/bin\/false/' /etc/adduser.conf
+sed -i -e 's/^DSHELL=.*/DSHELL=\/usr\/sbin\/nologin/'  /etc/adduser.conf
 sed -i 's/^SHELL=.*/SHELL=\/usr\/sbin\/nologin/' /etc/default/useradd
 sed -i 's/ENCRYPT_METHOD.*/ENCRYPT_METHOD YESCRYPT/' /etc/login.defs
 sed -i 's/^UMASK.*/UMASK 077/' /etc/login.defs

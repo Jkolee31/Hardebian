@@ -2,6 +2,9 @@
 
 set -euo pipefail
 
+mount /usr -o remount,rw /usr
+mount /usr -o remount,rw /boot
+
 apt update
 apt purge -y  iptables* ufw gufw zram* yad* xfce4-wavelan-plugin xfce4-places-plugin xfce4-mount-plugin xfce4-genmon-plugin xfce4-fsguard-plugin xfce4-docklike-plugin xfce-superkey-mx pci* papirus* orca* nfs* network-manager* mx-usb-unmounter mx-goodies pmount* libspa-0.2-bluetooth libspa-0.2-libcamera libpocketsphinx3  libjansson4 acpi* anacron* cron* avahi* atmel* bc bind9* ddm-mx dns* fastfetch fonts-noto* fprint* isc-dhcp* iptables* ufw lxc* docker* podman* xen* bochs* uml* vagrant* libssh* ssh* openssh* acpi* samba* winbind* qemu* libvirt* virt* cron* avahi* cup* zram* print* rsync* virtual* sane* rpc* bind* nfs* blue* pp* spee* espeak* mobile* wireless* bc perl blue* dictionaries-common doc-debian emacs* ethtool iamerican ibritish ienglish-common inet* ispell task-english util-linux-locales wamerican tasksel* vim*
 
@@ -612,6 +615,9 @@ chattr +i /etc/shadow-
 chattr +i /etc/shells
 chattr -R +i /etc/pam.d
 chattr +i /etc/sysctl.conf
+
+mount /usr -o remount,ro /boot
+mount /usr -o remount,ro /usr
 chattr -R +i /etc/modprobe.d
 chattr +i /etc/services
 chattr +i /etc/sudoers

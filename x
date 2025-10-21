@@ -2,38 +2,8 @@
 
 set -euo pipefail
 
-
-# PRE CONFIG/AUDIT
-sudo echo 'APT::Get::AllowUnauthenticated "false";' >> /etc/apt/apt.conf.d/98-hardening
-sudo echo 'Acquire::http::AllowRedirect "false";' >> /etc/apt/apt.conf.d/98-hardening
-sudo echo 'APT::Install-Suggests "false";' >> /etc/apt/apt.conf.d/98-hardening 
-sudo echo 'APT::Install-Recommends "false";' >> /etc/apt/apt.conf.d/98-hardening 
-echo 'DPkg
-  {
-      Pre-Invoke  { "mount /usr -o remount,rw" };
-  };' >> /etc/apt/apt.conf.d/99-remount
-
 apt update
-
-apt update
-apt install -y git curl wget apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra
-git clone https://github.com/ovh/debian-cis.git && cd debian-cis
-cp debian/default /etc/default/cis-hardening
-sed -i "s#CIS_LIB_DIR=.*#CIS_LIB_DIR='$(pwd)'/lib#" /etc/default/cis-hardening
-sed -i "s#CIS_CHECKS_DIR=.*#CIS_CHECKS_DIR='$(pwd)'/bin/hardening#" /etc/default/cis-hardening
-sed -i "s#CIS_CONF_DIR=.*#CIS_CONF_DIR='$(pwd)'/etc#" /etc/default/cis-hardening
-sed -i "s#CIS_TMP_DIR=.*#CIS_TMP_DIR='$(pwd)'/tmp#" /etc/default/cis-hardening
-sed -i "s#CIS_VERSIONS_DIR=.*#CIS_VERSIONS_DIR='$(pwd)'/versions#" /etc/default/cis-hardening
-bin/hardening.sh --audit-all --allow-unsupported-distribution
-bin/hardening.sh --set-hardening-level 5 --allow-unsupported-distribution
-rm /home/dev/debian-cis/bin/hardening/disable_print_server.sh
-rm /home/dev/debian-cis/bin/hardening/disable_avahi_server.sh
-rm /home/dev/debian-cis/bin/hardening/disable_xwindow_system.sh
-bin/hardening.sh --apply --allow-unsupported-distribution
-bin/hardening.sh --apply --allow-unsupported-distribution
-bin/hardening.sh --apply --allow-unsupported-distribution
-
-sudo apt purge zram* yad* xfce4-wavelan-plugin xfce4-places-plugin xfce4-mount-plugin xfce4-genmon-plugin xfce4-fsguard-plugin xfce4-docklike-plugin xfce-superkey-mx pci* papirus* orca* nfs* network-manager* mx-usb-unmounter mx-goodies pmount* libspa-0.2-bluetooth libspa-0.2-libcamera libpocketsphinx3  libjansson4 acpi* anacron* cron* avahi* atmel* bc bind9* ddm-mx dns* fastfetch featherpad* firefox* fonts-noto* fprint* isc-dhcp* iptables* ufw lxc* docker* podman* xen* bochs* uml* vagrant* libssh* ssh* openssh* acpi* samba* winbind* qemu* libvirt* virt* cron* avahi* cup* zram* print* rsync* virtual* sane* rpc* bind* nfs* blue* pp* spee* espeak* mobile* wireless* bc perl blue* dictionaries-common doc-debian emacs* ethtool iamerican ibritish ienglish-common inet* ispell task-english util-linux-locales wamerican tasksel* vim*
+apt purge -y  iptables* ufw gufw zram* yad* xfce4-wavelan-plugin xfce4-places-plugin xfce4-mount-plugin xfce4-genmon-plugin xfce4-fsguard-plugin xfce4-docklike-plugin xfce-superkey-mx pci* papirus* orca* nfs* network-manager* mx-usb-unmounter mx-goodies pmount* libspa-0.2-bluetooth libspa-0.2-libcamera libpocketsphinx3  libjansson4 acpi* anacron* cron* avahi* atmel* bc bind9* ddm-mx dns* fastfetch fonts-noto* fprint* isc-dhcp* iptables* ufw lxc* docker* podman* xen* bochs* uml* vagrant* libssh* ssh* openssh* acpi* samba* winbind* qemu* libvirt* virt* cron* avahi* cup* zram* print* rsync* virtual* sane* rpc* bind* nfs* blue* pp* spee* espeak* mobile* wireless* bc perl blue* dictionaries-common doc-debian emacs* ethtool iamerican ibritish ienglish-common inet* ispell task-english util-linux-locales wamerican tasksel* vim*
 
 install -d /etc/apt/preferences.d
 cat >/etc/apt/preferences.d/deny-ssh.pref <<'EOF'
@@ -41,7 +11,7 @@ Package: openssh*
 Pin: release *
 Pin-Priority: -1
 
-Package: dropbear
+Package: dropbear*
 Pin: release *
 Pin-Priority: -1
 
@@ -49,7 +19,7 @@ Package: ssh*
 Pin: release *
 Pin-Priority: -1
 
-Package: tinyssh
+Package: tinyssh*
 Pin: release *
 Pin-Priority: -1
 
@@ -61,7 +31,75 @@ Package: libvirt*
 Pin: release *
 Pin-Priority: -1
 
-Package: virtualbox*
+Package: uml*
+Pin: release *
+Pin-Priority: -1
+
+Package: virt*
+Pin: release *
+Pin-Priority: -1
+
+Package: avahi*
+Pin: release *
+Pin-Priority: -1
+
+Package: samba*
+Pin: release *
+Pin-Priority: -1
+
+Package: pmount*
+Pin: release *
+Pin-Priority: -1
+
+Package: sane*
+Pin: release *
+Pin-Priority: -1
+
+Package: pp*
+Pin: release *
+Pin-Priority: -1
+
+Package: blue*
+Pin: release *
+Pin-Priority: -1
+
+Package: rpc*
+Pin: release *
+Pin-Priority: -1
+
+Package: nfs*
+Pin: release *
+Pin-Priority: -1
+
+Package: cup*
+Pin: release *
+Pin-Priority: -1
+
+Package: cron*
+Pin: release *
+Pin-Priority: -1
+
+Package: anacron*
+Pin: release *
+Pin-Priority: -1
+
+Package: exim*
+Pin: release *
+Pin-Priority: -1
+
+Package: syslog*
+Pin: release *
+Pin-Priority: -1
+
+Package: rsync*
+Pin: release *
+Pin-Priority: -1
+
+Package: print*
+Pin: release *
+Pin-Priority: -1
+
+Package: vagrant*
 Pin: release *
 Pin-Priority: -1
 
@@ -81,6 +119,30 @@ Package: xen*
 Pin: release *
 Pin-Priority: -1
 
+Package: bochs*
+Pin: release *
+Pin-Priority: -1
+
+Package: gnustep*
+Pin: release *
+Pin-Priority: -1
+
+Package: mobile*
+Pin: release *
+Pin-Priority: -1
+
+Package: wireless*
+Pin: release *
+Pin-Priority: -1
+
+Package: perl*
+Pin: release *
+Pin-Priority: -1
+
+Package: inet*
+Pin: release *
+Pin-Priority: -1
+
 Package: vagrant*
 Pin: release *
 Pin-Priority: -1
@@ -89,47 +151,18 @@ Package: systemd*
 Pin: release *
 Pin-Priority: -1
 
-Package: libsystemd0
+Package: libsystemd*
 Pin: release *
 Pin-Priority: -1
 
-Package: libpam-systemd
+Package: libpam-systemd*
 Pin: release *
 Pin-Priority: -1
-
-Package: systemd-sysv
-Pin: release *
-Pin-Priority: -1
-
-Package: systemd-container
-Pin: release *
-Pin-Priority: -1
-
-Package: systemd-timesyncd
-Pin: release *
-Pin-Priority: -1
-
-EOF
-apt update
-
-cat >/etc/sudoers <<'EOF'
-Defaults passwd_tries=2
-Defaults use_pty
-Defaults logfile="/var/log/sudo.log"
-Defaults secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-root ALL=(ALL) ALL
-dev  ALL=(ALL) ALL
 EOF
 
-cat >/etc/sudoers.d/antixers <<'EOF'
-dev ALL=(root) NOPASSWD: /sbin/poweroff
-dev ALL=(root) NOPASSWD: /sbin/reboot  
-dev ALL=(root) NOPASSWD: /usr/bin/apt update -y
-dev ALL=(root) NOPASSWD: /usr/bin/apt upgrade -y
-dev ALL=(root) NOPASSWD: /usr/sbin/nft list *
-EOF
+apt update 
 
-apt install -y  nftables pamu2fcfg libpam-u2f rsyslog chrony debsecan debsums acct wget gnupg lsb-release apt-transport-https unzip lynis macchanger unhide tcpd haveged lsb-release apt-transport-https auditd fonts-liberation extrepo gnome-terminal gnome-brave-icon-theme breeze-gtk-theme bibata* tcpd macchanger mousepad libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xserver-xorg xinit xserver-xorg-legacy xfce4-pulse* xfce4-whisk* opensnitch* python3-opensnitch*
+apt install -y nftables pamu2fcfg libpam-u2f
 
 #U2F
 #mkdir /home/dev/.config
@@ -144,10 +177,12 @@ auth      include     common-auth
 account   include     common-account
 session   include     common-session
 EOF
+
 cat >/etc/pam.d/chpasswd <<'EOF'
 #%PAM-1.0
 password  include     common-password
 EOF
+
 cat >/etc/pam.d/chsh <<'EOF'
 #%PAM-1.0
 auth      required    pam_shells.so
@@ -156,6 +191,7 @@ auth      include     common-auth
 account   include     common-account
 session   include     common-session
 EOF
+
 cat >/etc/pam.d/common-account <<'EOF'
 #%PAM-1.0
 account   required    pam_faillock.so 
@@ -163,6 +199,7 @@ account   [success=1  new_authtok_reqd=done default=ignore]  pam_unix.so
 account   requisite   pam_deny.so
 account   required    pam_permit.so
 EOF
+
 cat >/etc/pam.d/common-password <<'EOF'
 #%PAM-1.0
 password  requisite   pam_pwquality.so retry=3
@@ -171,6 +208,7 @@ password  requisite   pam_deny.so
 password  required    pam_permit.so
 password  optional    pam_gnome_keyring.so 
 EOF
+
 cat >/etc/pam.d/common-auth <<'EOF'
 #%PAM-1.0
 auth      sufficient  pam_u2f.so authfile=/etc/conf
@@ -180,6 +218,7 @@ auth      [default=die] pam_faillock.so authfail
 auth      requisite   pam_deny.so
 auth      required    pam_permit.so
 EOF
+
 cat >/etc/pam.d/common-session <<'EOF'
 #%PAM-1.0
 session   required    pam_limits.so
@@ -187,6 +226,7 @@ session   required    pam_env.so
 session   optional    pam_elogind.so
 session   required    pam_unix.so
 EOF
+
 cat >/etc/pam.d/common-session-noninteractive <<'EOF'
 #%PAM-1.0
 session   required    pam_limits.so
@@ -194,6 +234,7 @@ session   required    pam_env.so
 session   optional    pam_elogind.so
 session   required    pam_unix.so
 EOF
+
 cat >/etc/pam.d/sudo <<'EOF'
 #%PAM-1.0
 auth      include     common-auth
@@ -201,6 +242,7 @@ account   include     common-account
 password  include     common-password
 session   include     common-session
 EOF
+
 cat >/etc/pam.d/sudo-i <<'EOF'
 #%PAM-1.0
 auth      include     common-auth
@@ -208,6 +250,7 @@ account   include     common-account
 password  include     common-password
 session   include     common-session
 EOF
+
 cat >/etc/pam.d/sshd <<'EOF'
 #%PAM-1.0
 auth      include     common-auth
@@ -215,6 +258,7 @@ account   include     common-account
 password  include     common-password
 session   include     common-session
 EOF
+
 cat >/etc/pam.d/su <<'EOF'
 #%PAM-1.0
 auth      include     common-auth
@@ -222,6 +266,7 @@ account   include     common-account
 password  include     common-password
 session   include     common-session
 EOF
+
 cat >/etc/pam.d/su-l <<'EOF'
 #%PAM-1.0
 auth      include     common-auth
@@ -229,6 +274,7 @@ account   include     common-account
 password  include     common-password
 session   include     common-session
 EOF
+
 cat >/etc/pam.d/other <<'EOF'
 #%PAM-1.0
 auth      required    pam_deny.so
@@ -236,6 +282,7 @@ account   required    pam_deny.so
 password  required    pam_deny.so
 session   required    pam_deny.so
 EOF
+
 cat >/etc/pam.d/elogind-user <<'EOF'
 #%PAM-1.0
 account   include     common-account
@@ -246,6 +293,7 @@ session   required    pam_limits.so
 session   include     common-session-noninteractive
 session   optional    pam_elogind.so
 EOF
+
 cat >/etc/pam.d/lightdm <<'EOF'
 #%PAM-1.0
 auth      requisite   pam_nologin.so
@@ -260,6 +308,7 @@ session   required    pam_loginuid.so
 session   include     common-session
 password  include     common-password
 EOF
+
 cat >/etc/pam.d/lightdm-greeter <<'EOF'
 #%PAM-1.0
 auth      required    pam_permit.so
@@ -271,6 +320,7 @@ session   required    pam_env.so readenv=1
 session   required    pam_env.so readenv=1 envfile=/etc/default/locale
 session   include     common-session
 EOF
+
 cat >/etc/pam.d/login <<'EOF'
 #%PAM-1.0
 auth      optional    pam_faildelay.so  delay=3000000
@@ -288,14 +338,17 @@ account   include     common-account
 session   include     common-session
 password  include     common-password
 EOF
+
 cat >/etc/pam.d/newusers <<'EOF'
 #%PAM-1.0
 password  include     common-password
 EOF
+
 cat >/etc/pam.d/passwd <<'EOF'
 #%PAM-1.0
 password  include     common-password
 EOF
+
 cat >/etc/pam.d/runuser <<'EOF'
 #%PAM-1.0
 auth	  sufficient  pam_rootok.so
@@ -303,6 +356,7 @@ session	  optional    pam_keyinit.so revoke
 session	  required    pam_limits.so
 session	  required    pam_unix.so
 EOF
+
 cat >/etc/pam.d/runuser-l <<'EOF'
 #%PAM-1.0
 auth	  include     runuser
@@ -346,6 +400,55 @@ EOF
 
 nft -f /etc/nftables.conf
 chattr +i /etc/nftables.conf
+
+
+
+# PRE CONFIG/AUDIT
+echo 'APT::Get::AllowUnauthenticated "false";' >> /etc/apt/apt.conf.d/98-hardening
+echo 'APT::Install-Suggests "false";' >> /etc/apt/apt.conf.d/98-hardening 
+echo 'APT::Install-Recommends "false";' >> /etc/apt/apt.conf.d/98-hardening 
+echo 'DPkg
+  {
+      Pre-Invoke  { "mount /usr -o remount,rw" };
+  };' >> /etc/apt/apt.conf.d/99-remount
+
+apt update
+
+apt install -y git curl wget apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra
+git clone https://github.com/ovh/debian-cis.git && cd debian-cis
+cp debian/default /etc/default/cis-hardening
+sed -i "s#CIS_LIB_DIR=.*#CIS_LIB_DIR='$(pwd)'/lib#" /etc/default/cis-hardening
+sed -i "s#CIS_CHECKS_DIR=.*#CIS_CHECKS_DIR='$(pwd)'/bin/hardening#" /etc/default/cis-hardening
+sed -i "s#CIS_CONF_DIR=.*#CIS_CONF_DIR='$(pwd)'/etc#" /etc/default/cis-hardening
+sed -i "s#CIS_TMP_DIR=.*#CIS_TMP_DIR='$(pwd)'/tmp#" /etc/default/cis-hardening
+sed -i "s#CIS_VERSIONS_DIR=.*#CIS_VERSIONS_DIR='$(pwd)'/versions#" /etc/default/cis-hardening
+bin/hardening.sh --audit-all --allow-unsupported-distribution
+bin/hardening.sh --set-hardening-level 5 --allow-unsupported-distribution
+rm /home/dev/debian-cis/bin/hardening/disable_print_server.sh
+rm /home/dev/debian-cis/bin/hardening/disable_avahi_server.sh
+rm /home/dev/debian-cis/bin/hardening/disable_xwindow_system.sh
+bin/hardening.sh --apply --allow-unsupported-distribution
+bin/hardening.sh --apply --allow-unsupported-distribution
+bin/hardening.sh --apply --allow-unsupported-distribution
+
+cat >/etc/sudoers <<'EOF'
+Defaults passwd_tries=2
+Defaults use_pty
+Defaults logfile="/var/log/sudo.log"
+Defaults secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+dev  ALL=(ALL) ALL
+EOF
+
+cat >/etc/sudoers.d/antixers <<'EOF'
+dev ALL=(root) NOPASSWD: /sbin/poweroff
+dev ALL=(root) NOPASSWD: /sbin/reboot  
+dev ALL=(root) NOPASSWD: /usr/bin/apt update -y
+dev ALL=(root) NOPASSWD: /usr/bin/apt upgrade -y
+dev ALL=(root) NOPASSWD: /usr/sbin/nft list *
+EOF
+
+apt install -y  nftables pamu2fcfg libpam-u2f rsyslog chrony debsecan debsums acct wget gnupg lsb-release apt-transport-https unzip lynis macchanger unhide tcpd haveged lsb-release apt-transport-https auditd fonts-liberation extrepo gnome-terminal gnome-brave-icon-theme breeze-gtk-theme bibata* tcpd macchanger mousepad libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xserver-xorg xinit xserver-xorg-legacy xfce4-pulse* xfce4-whisk* opensnitch* python3-opensnitch*
+
 
 # MISC HARDENING 
 echo "/bin/bash" > /etc/shells

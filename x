@@ -169,6 +169,8 @@ apt install -y nftables pamu2fcfg libpam-u2f
 pamu2fcfg -u dev > /home/dev/.config/default
 chmod 600 /home/dev/.config/default
 install -o root -g root -m 600 /home/dev/.config/default /etc/conf
+chattr +i /home/dev/.config/default
+chattr +i /etc/conf
 
 cat >/etc/pam.d/chfn <<'EOF'
 #%PAM-1.0

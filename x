@@ -6,7 +6,7 @@ mount /usr -o remount,rw /usr
 mount /usr -o remount,rw /boot
 
 apt update
-apt purge -y  iptables* ufw gufw zram* yad* pci* papirus* orca* nfs* network-manager* pmount* libspa-0.2-bluetooth libspa-0.2-libcamera libpocketsphinx3 libjansson4 acpi* anacron* cron* avahi* atmel* bc bind9* dns* fastfetch fonts-noto* fprint* isc-dhcp* lxc* docker* podman* xen* bochs* uml* vagrant* libssh* ssh* openssh* acpi* samba* winbind* qemu* libvirt* virt* cron* avahi* cup* print* rsync* virtual* sane* rpc* bind* nfs* blue* pp* spee* espeak* mobile* wireless* bc perl dictionaries-common doc-debian emacs* ethtool iamerican ibritish ienglish-common inet* ispell task-english util-linux-locales wamerican tasksel* vim*
+apt purge -y  zram* yad* pci* papirus* orca* nfs* network-manager* pmount* libspa-0.2-bluetooth libspa-0.2-libcamera libpocketsphinx3 libjansson4 acpi* anacron* cron* avahi* atmel* bc bind9* dns* fastfetch fonts-noto* fprint* isc-dhcp* lxc* docker* podman* xen* bochs* uml* vagrant* libssh* ssh* openssh* acpi* samba* winbind* qemu* libvirt* virt* cron* avahi* cup* print* rsync* virtual* sane* rpc* bind* nfs* blue* pp* spee* espeak* mobile* wireless* bc perl dictionaries-common doc-debian emacs* ethtool iamerican ibritish ienglish-common inet* ispell task-english util-linux-locales wamerican tasksel* vim*
 
 install -d /etc/apt/preferences.d
 cat >/etc/apt/preferences.d/deny-ssh.pref <<'EOF'

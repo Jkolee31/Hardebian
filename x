@@ -138,10 +138,6 @@ Package: wireless*
 Pin: release *
 Pin-Priority: -1
 
-Package: perl*
-Pin: release *
-Pin-Priority: -1
-
 Package: inet*
 Pin: release *
 Pin-Priority: -1
@@ -226,8 +222,6 @@ EOF
 cat >/etc/pam.d/common-session <<'EOF'
 #%PAM-1.0
 session   required    pam_limits.so
-session   required    pam_env.so
-session   optional    pam_elogind.so
 session   optional    pam_umask.so umask=077
 session   required    pam_unix.so
 EOF
@@ -235,8 +229,6 @@ EOF
 cat >/etc/pam.d/common-session-noninteractive <<'EOF'
 #%PAM-1.0
 session   required    pam_limits.so
-session   required    pam_env.so
-session   optional    pam_elogind.so
 session   optional    pam_umask.so umask=077
 session   required    pam_unix.so
 EOF
@@ -343,15 +335,14 @@ EOF
 
 cat >/etc/pam.d/runuser <<'EOF'
 #%PAM-1.0
-auth	    sufficient  pam_rootok.so
+auth	      sufficient  pam_rootok.so
 session	  required    pam_limits.so
 session	  required    pam_unix.so
 EOF
 
 cat >/etc/pam.d/runuser-l <<'EOF'
 #%PAM-1.0
-auth	    include     runuser
--session  optional    pam_elogind.so
+auth	      include     runuser
 session	  include     runuser
 EOF
 
@@ -430,7 +421,7 @@ dev ALL=(root) NOPASSWD: /usr/sbin/nft list *
 EOF
 
 #FINAL INSTALL (NEW AND/OR INCASE ANYTHING WAS DELETED)
-apt install -y  nftables pamu2fcfg libpam-u2f rsyslog chrony unzip lynis macchanger unhide auditd fonts-liberation gnome-terminal gnome-brave-icon-theme breeze-gtk-theme bibata* tcpd libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xserver-xorg xinit xserver-xorg-legacy xfce4-pulse* xfce4-whisk* opensnitch* python3-opensnitch*
+apt install -y  rsyslog chrony unzip patch lynis macchanger unhide auditd fonts-liberation gnome-terminal gnome-brave-icon-theme breeze-gtk-theme bibata* tcpd libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xserver-xorg xinit xserver-xorg-legacy xfce4-pulse* xfce4-whisk* opensnitch* python3-opensnitch*
 
 
 # MISC HARDENING 
@@ -449,9 +440,6 @@ echo "ProcessSizeMax=0
 Storage=none" >> /etc/systemd/coredump.conf
 echo "ulimit -c 0" >> /etc/profile
 
-sed -i -e 's/^DSHELL=.*/DSHELL=\/usr\/sbin\/nologin/'  /etc/adduser.conf
-sed -i 's/^SHELL=.*/SHELL=\/usr\/sbin\/nologin/' /etc/default/useradd
-sed -i 's/ENCRYPT_METHOD.*/ENCRYPT_METHOD YESCRYPT/' /etc/login.defs
 sed -i 's/^UMASK.*/UMASK 077/' /etc/login.defs
 echo "umask 077" >> /etc/profile
 echo "umask 077" >> /etc/bash.bashrc
@@ -594,8 +582,6 @@ sysctl --system
 # MOUNTS
 echo "
 proc                                      /proc                      proc       nosuid,nodev,noexec,hidepid=2 0 0
-tmpfs                                     /tmp                       tmpfs      nosuid,nodev,noexec,mode=1777 0 0
-tmpfs                                     /var/tmp                   tmpfs      nosuid,nodev,noexec,mode=1777 0 0
 " >> /etc/fstab
 
 # LOCKDOWN

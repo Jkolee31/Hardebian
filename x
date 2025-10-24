@@ -8,6 +8,36 @@ mount /usr -o remount,rw /boot
 apt update
 apt purge -y  zram* yad* pci* papirus* orca* nfs* network-manager* pmount* libspa-0.2-bluetooth libspa-0.2-libcamera libpocketsphinx3 libjansson4 acpi* anacron* cron* avahi* atmel* bc bind9* dns* fastfetch fonts-noto* fprint* isc-dhcp* lxc* docker* podman* xen* bochs* uml* vagrant* libssh* ssh* openssh* acpi* samba* winbind* qemu* libvirt* virt* cron* avahi* cup* print* rsync* virtual* sane* rpc* bind* nfs* blue* pp* spee* espeak* mobile* wireless* bc perl dictionaries-common doc-debian emacs* ethtool iamerican ibritish ienglish-common inet* ispell task-english util-linux-locales wamerican tasksel* vim*
 
+# FIREWALL (MULLVAD REQUIRED)
+apt install iptables iptables-persistent netfilter-persistent
+systemctl enable netfilter-persistent
+service netfilter-persistent start
+iptables -F
+iptables -X
+iptables -Z
+iptables -P INPUT DROP
+iptables -P OUTPUT DROP
+iptables -P FORWARD DROP
+iptables -A INPUT -i lo -j ACCEPT
+iptables -A OUTPUT -o lo -j ACCEPT
+iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+iptables -A OUTPUT -o eth0 -p udp --dport 51820 -j ACCEPT
+iptables -A INPUT -i wg0-mullvad -j ACCEPT
+iptables -A OUTPUT -o wg0-mullvad -j ACCEPT
+iptables -A OUTPUT -o wg0-mullvad -p udp --dport 53 -j ACCEPT
+iptables -A OUTPUT -j DROP
+iptables -A INPUT -j DROP
+ip6tables -F
+ip6tables -X
+ip6tables -Z
+ip6tables -P INPUT DROP
+ip6tables -P OUTPUT DROP
+ip6tables -P FORWARD DROP
+iptables-save > /etc/iptables/rules.v4
+ip6tables-save > /etc/iptables/rules.v6
+netfilter-persistent save
+
 install -d /etc/apt/preferences.d
 cat >/etc/apt/preferences.d/deny-ssh.pref <<'EOF'
 Package: openssh*
@@ -348,39 +378,6 @@ EOF
 
 chattr +i -R /etc/pam.d/*
 
-# FIREWALL
-cat >/etc/nftables.conf <<'EOF'
-flush ruleset
-
-table inet filter {
-  chain input {
-    type filter hook input priority filter; policy drop;
-    iifname "lo" accept
-    ct state invalid drop
-    ct state established,related accept
-    iifname "wg0" accept
-  }
-
-  chain forward {
-    type filter hook forward priority filter; policy drop;
-  }
-
-  chain output {
-    type filter hook output priority filter; policy drop;
-    oifname "lo" accept
-    ct state invalid drop
-    ct state established,related accept
-    udp dport 51820 accept
-    udp dport 53 accept
-    tcp dport 443 accept
-    tcp dport 80 accept
-
-  }
-}
-EOF
-
-nft -f /etc/nftables.conf
-chattr +i /etc/nftables.conf
 
 # PRE CONFIG/AUDIT
 echo 'APT::Get::AllowUnauthenticated "false";' >> /etc/apt/apt.conf.d/98-hardening

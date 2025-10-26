@@ -5,8 +5,13 @@ set -euo pipefail
 mount /usr -o remount,rw /usr
 mount /usr -o remount,rw /boot
 
+# PRE CONFIG/AUDIT
+echo 'APT::Get::AllowUnauthenticated "false";' >> /etc/apt/apt.conf.d/98-hardening
+echo 'APT::Install-Suggests "false";' >> /etc/apt/apt.conf.d/98-hardening 
+echo 'APT::Install-Recommends "false";' >> /etc/apt/apt.conf.d/98-hardening 
 apt update
-apt purge -y  zram* yad* pci* papirus* orca* nfs* network-manager* pmount* libspa-0.2-bluetooth libspa-0.2-libcamera libpocketsphinx3 libjansson4 acpi* anacron* cron* avahi* atmel* bc bind9* dns* fastfetch fonts-noto* fprint* isc-dhcp* lxc* docker* podman* xen* bochs* uml* vagrant* libssh* ssh* openssh* acpi* samba* winbind* qemu* libvirt* virt* cron* avahi* cup* print* rsync* virtual* sane* rpc* bind* nfs* blue* pp* spee* espeak* mobile* wireless* bc perl dictionaries-common doc-debian emacs* ethtool iamerican ibritish ienglish-common inet* ispell task-english util-linux-locales wamerican tasksel* vim*
+apt purge -y  zram* yad* pci* papirus* orca* nfs* network-manager* pmount* libspa-0.2-bluetooth libspa-0.2-libcamera libpocketsphinx3 libjansson4 acpi* anacron* avahi* atmel* bc bind9* dns* fastfetch fonts-noto* fprint* isc-dhcp* lxc* docker* podman* xen* bochs* uml* vagrant* libssh* ssh* openssh* acpi* samba* winbind* qemu* libvirt* virt* cron* avahi* cup* print* rsync* virtual* sane* rpc* bind* nfs* blue* pp* spee* espeak* mobile* wireless* bc perl dictionaries-common doc-debian emacs* ethtool iamerican ibritish ienglish-common inet* ispell task-english util-linux-locales wamerican tasksel* vim*
+
 
 # FIREWALL (MULLVAD REQUIRED)
 apt install iptables iptables-persistent netfilter-persistent
@@ -115,23 +120,11 @@ Package: cup*
 Pin: release *
 Pin-Priority: -1
 
-Package: cron*
-Pin: release *
-Pin-Priority: -1
-
 Package: anacron*
 Pin: release *
 Pin-Priority: -1
 
 Package: exim*
-Pin: release *
-Pin-Priority: -1
-
-Package: syslog*
-Pin: release *
-Pin-Priority: -1
-
-Package: rsync*
 Pin: release *
 Pin-Priority: -1
 
@@ -167,6 +160,10 @@ Package: gnustep*
 Pin: release *
 Pin-Priority: -1
 
+Package: sendmail*
+Pin: release *
+Pin-Priority: -1
+
 Package: mobile*
 Pin: release *
 Pin-Priority: -1
@@ -183,22 +180,9 @@ Package: vagrant*
 Pin: release *
 Pin-Priority: -1
 
-Package: systemd*
-Pin: release *
-Pin-Priority: -1
-
-Package: libsystemd*
-Pin: release *
-Pin-Priority: -1
-
-Package: libpam-systemd*
-Pin: release *
-Pin-Priority: -1
-EOF
-
 apt update 
 
-apt install -y nftables pamu2fcfg libpam-u2f
+apt install -y pamu2fcfg libpam-u2f rsyslog chrony unzip patch lynis macchanger unhide auditd fonts-liberation gnome-terminal gnome-brave-icon-theme breeze-gtk-theme bibata* tcpd libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xserver-xorg xinit xserver-xorg-legacy xfce4-pulse* xfce4-whisk* opensnitch* python3-opensnitch*
 
 #U2F
 #mkdir /home/dev/.config
@@ -250,7 +234,7 @@ cat >/etc/pam.d/common-auth <<'EOF'
 #%PAM-1.0
 auth      sufficient  pam_u2f.so authfile=/etc/conf
 auth      requisite   pam_faillock.so preauth
-auth      [success=2  default=ignore]  pam_unix.so try_first_pass
+auth      [success=1  default=ignore]  pam_unix.so try_first_pass
 auth      [default=die] pam_faillock.so authfail
 auth      requisite   pam_deny.so
 auth      required    pam_permit.so
@@ -318,15 +302,6 @@ password  required    pam_deny.so
 session   required    pam_deny.so
 EOF
 
-cat >/etc/pam.d/elogind-user <<'EOF'
-#%PAM-1.0
-account   include     common-account
-session   required    pam_loginuid.so
-session   required    pam_limits.so
-session   include     common-session
-session   optional    pam_elogind.so
-EOF
-
 cat >/etc/pam.d/lightdm <<'EOF'
 #%PAM-1.0
 auth      requisite   pam_nologin.so
@@ -372,24 +347,16 @@ EOF
 
 cat >/etc/pam.d/runuser <<'EOF'
 #%PAM-1.0
-auth	      sufficient  pam_rootok.so
+auth	     sufficient  pam_rootok.so
 session	  required    pam_limits.so
 session	  required    pam_unix.so
 EOF
 
 cat >/etc/pam.d/runuser-l <<'EOF'
 #%PAM-1.0
-auth	      include     runuser
+auth	     include     runuser
 session	  include     runuser
 EOF
-
-chattr +i -R /etc/pam.d/*
-
-
-# PRE CONFIG/AUDIT
-echo 'APT::Get::AllowUnauthenticated "false";' >> /etc/apt/apt.conf.d/98-hardening
-echo 'APT::Install-Suggests "false";' >> /etc/apt/apt.conf.d/98-hardening 
-echo 'APT::Install-Recommends "false";' >> /etc/apt/apt.conf.d/98-hardening 
 
 apt install -y git curl wget apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra
 git clone https://github.com/ovh/debian-cis.git && cd debian-cis
@@ -404,6 +371,7 @@ bin/hardening.sh --set-hardening-level 5 --allow-unsupported-distribution
 rm /home/dev/debian-cis/bin/hardening/disable_print_server.sh
 rm /home/dev/debian-cis/bin/hardening/disable_avahi_server.sh
 rm /home/dev/debian-cis/bin/hardening/disable_xwindow_system.sh
+rm /home/dev/debian-cis/bin/hardening/install_tripwire.sh
 bin/hardening.sh --apply --allow-unsupported-distribution
 bin/hardening.sh --apply --allow-unsupported-distribution
 bin/hardening.sh --apply --allow-unsupported-distribution
@@ -413,20 +381,9 @@ Defaults passwd_tries=2
 Defaults use_pty
 Defaults logfile="/var/log/sudo.log"
 Defaults secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-dev  ALL=(ALL) ALL
+root   ALL=(ALL) ALL
+%sudo  ALL=(ALL) ALL
 EOF
-
-cat >/etc/sudoers.d/antixers <<'EOF'
-dev ALL=(root) NOPASSWD: /sbin/poweroff
-dev ALL=(root) NOPASSWD: /sbin/reboot  
-dev ALL=(root) NOPASSWD: /usr/bin/apt update -y
-dev ALL=(root) NOPASSWD: /usr/bin/apt upgrade -y
-dev ALL=(root) NOPASSWD: /usr/sbin/nft list *
-EOF
-
-#FINAL INSTALL (NEW AND/OR INCASE ANYTHING WAS DELETED)
-apt install -y  rsyslog chrony unzip patch lynis macchanger unhide auditd fonts-liberation gnome-terminal gnome-brave-icon-theme breeze-gtk-theme bibata* tcpd libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xserver-xorg xinit xserver-xorg-legacy xfce4-pulse* xfce4-whisk* opensnitch* python3-opensnitch*
-
 
 # MISC HARDENING 
 echo "/bin/bash" > /etc/shells

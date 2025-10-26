@@ -233,7 +233,7 @@ EOF
 
 cat >/etc/pam.d/common-auth <<'EOF'
 #%PAM-1.0
-auth      requiired   pam_u2f.so authfile=/etc/conf
+auth      required    pam_u2f.so authfile=/etc/conf
 auth      sufficient  pam_unix.so try_first_pass
 auth      requisite   pam_deny.so
 auth      required    pam_permit.so

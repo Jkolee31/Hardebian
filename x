@@ -12,31 +12,38 @@ apt purge -y  zram* yad* pci* papirus* orca* nfs* network-manager* pmount* libsp
 apt install iptables iptables-persistent netfilter-persistent
 systemctl enable netfilter-persistent
 service netfilter-persistent start
-iptables -F
-iptables -X
-iptables -Z
-iptables -P INPUT DROP
-iptables -P OUTPUT DROP
-iptables -P FORWARD DROP
-iptables -A INPUT -i lo -j ACCEPT
-iptables -A OUTPUT -o lo -j ACCEPT
-iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-iptables -A OUTPUT -o eth0 -p udp --dport 51820 -j ACCEPT
-iptables -A INPUT -i wg0-mullvad -j ACCEPT
-iptables -A OUTPUT -o wg0-mullvad -j ACCEPT
-iptables -A OUTPUT -o wg0-mullvad -p udp --dport 53 -j ACCEPT
-iptables -A OUTPUT -j DROP
-iptables -A INPUT -j DROP
-ip6tables -F
-ip6tables -X
-ip6tables -Z
-ip6tables -P INPUT DROP
-ip6tables -P OUTPUT DROP
-ip6tables -P FORWARD DROP
-iptables-save > /etc/iptables/rules.v4
-ip6tables-save > /etc/iptables/rules.v6
-netfilter-persistent save
+sudo iptables -F
+sudo iptables -X
+sudo iptables -Z
+sudo iptables -t nat -F
+sudo iptables -t nat -X
+sudo iptables -t nat -Z
+sudo iptables -t mangle -F
+sudo iptables -t mangle -X
+sudo iptables -t mangle -Z
+sudo iptables -P INPUT DROP
+sudo iptables -P OUTPUT DROP
+sudo iptables -P FORWARD DROP
+sudo iptables -A INPUT -i lo -j ACCEPT
+sudo iptables -A OUTPUT -o lo -j ACCEPT
+sudo iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+sudo iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+sudo iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
+sudo iptables -A OUTPUT -m conntrack --ctstate INVALID -j DROP
+sudo iptables -A OUTPUT -o eth0 -p udp --dport 51820 -j ACCEPT
+sudo iptables -A INPUT -i wg0-mullvad -j ACCEPT
+sudo iptables -A OUTPUT -o wg0-mullvad -j ACCEPT
+sudo iptables -A OUTPUT -o wg0-mullvad -p udp --dport 53 -j ACCEPT
+sudo iptables -A OUTPUT -o wg0-mullvad -p tcp --dport 80 -j ACCEPT 
+sudo iptables -A OUTPUT -o wg0-mullvad -p tcp --dport 443 -j ACCEPT
+sudo ip6tables -F
+sudo ip6tables -X
+sudo ip6tables -Z
+sudo ip6tables -P INPUT DROP
+sudo ip6tables -P OUTPUT DROP
+sudo ip6tables -P FORWARD DROP
+sudo netfilter-persistent save
+sudo systemctl enable netfilter-persistent
 
 install -d /etc/apt/preferences.d
 cat >/etc/apt/preferences.d/deny-ssh.pref <<'EOF'

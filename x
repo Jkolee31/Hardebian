@@ -179,9 +179,10 @@ Pin-Priority: -1
 Package: vagrant*
 Pin: release *
 Pin-Priority: -1
+EOF
 
+#INSTALL APPLICATIONS
 apt update 
-
 apt install -y pamu2fcfg libpam-u2f rsyslog chrony unzip patch lynis macchanger unhide auditd fonts-liberation gnome-terminal gnome-brave-icon-theme breeze-gtk-theme bibata* tcpd libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xserver-xorg xinit xserver-xorg-legacy xfce4-pulse* xfce4-whisk* opensnitch* python3-opensnitch*
 
 #U2F
@@ -232,10 +233,8 @@ EOF
 
 cat >/etc/pam.d/common-auth <<'EOF'
 #%PAM-1.0
-auth      sufficient  pam_u2f.so authfile=/etc/conf
-auth      requisite   pam_faillock.so preauth
-auth      [success=1  default=ignore]  pam_unix.so try_first_pass
-auth      [default=die] pam_faillock.so authfail
+auth      requiired   pam_u2f.so authfile=/etc/conf
+auth      sufficient  pam_unix.so try_first_pass
 auth      requisite   pam_deny.so
 auth      required    pam_permit.so
 EOF

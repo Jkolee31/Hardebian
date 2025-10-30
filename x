@@ -186,12 +186,10 @@ apt update
 apt install -y pamu2fcfg libpam-u2f rsyslog chrony unzip patch lynis macchanger unhide auditd fonts-liberation gnome-terminal gnome-brave-icon-theme breeze-gtk-theme bibata* tcpd libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xserver-xorg xinit xserver-xorg-legacy xfce4-pulse* xfce4-whisk* opensnitch* python3-opensnitch*
 
 #U2F
-#mkdir /home/dev/.config
-pamu2fcfg -u dev > /home/dev/.config/default
-chmod 600 /home/dev/.config/default
-install -o root -g root -m 600 /home/dev/.config/default /etc/conf
-chattr +i /home/dev/.config/default
-chattr +i /etc/conf
+pamu2fcfg -u dev > /etc/u2f_mappings
+chmod 600 /etc/u2f_mappings
+chown root:root /etc/u2f_mappings
+chattr +i /etc/u2f_mappings
 
 cat >/etc/pam.d/chfn <<'EOF'
 #%PAM-1.0
@@ -233,30 +231,29 @@ EOF
 
 cat >/etc/pam.d/common-auth <<'EOF'
 #%PAM-1.0
-auth      sufficient  pam_u2f.so authfile=/etc/conf
-auth      [success=1  default=ignore]  pam_unix.so try_first_pass
+auth      required    pam_u2f.so authfile=/etc/u2f_mappings cue
 auth      requisite   pam_deny.so
-auth      required    pam_permit.so
 EOF
 
 
 cat >/etc/pam.d/common-session <<'EOF'
 #%PAM-1.0
 session   required    pam_limits.so
-session   optional    pam_umask.so umask=077
+session   optional    pam_umask.so umask=027
 session   required    pam_unix.so
 EOF
 
 cat >/etc/pam.d/common-session-noninteractive <<'EOF'
 #%PAM-1.0
 session   required    pam_limits.so
-session   optional    pam_umask.so umask=077
+session   optional    pam_umask.so umask=027
 session   required    pam_unix.so
 EOF
 
 cat >/etc/pam.d/sudo <<'EOF'
 #%PAM-1.0
-auth      include     common-auth
+auth      required    pam_u2f.so authfile=/etc/u2f_mappings cue
+auth      requisite   pam_deny.so
 account   include     common-account
 password  include     common-password
 session   include     common-session
@@ -264,7 +261,8 @@ EOF
 
 cat >/etc/pam.d/sudo-i <<'EOF'
 #%PAM-1.0
-auth      include     common-auth
+auth      required    pam_u2f.so authfile=/etc/u2f_mappings cue
+auth      requisite   pam_deny.so
 account   include     common-account
 password  include     common-password
 session   include     common-session
@@ -272,15 +270,16 @@ EOF
 
 cat >/etc/pam.d/sshd <<'EOF'
 #%PAM-1.0
-auth      include     common-auth
+auth      required    pam_u2f.so authfile=/etc/u2f_mappings cue
+auth      requisite   pam_deny.so
 account   include     common-account
-password  include     common-password
 session   include     common-session
 EOF
 
 cat >/etc/pam.d/su <<'EOF'
 #%PAM-1.0
-auth      include     common-auth
+auth      required    pam_u2f.so authfile=/etc/u2f_mappings cue
+auth      requisite   pam_deny.so
 account   include     common-account
 password  include     common-password
 session   include     common-session
@@ -288,7 +287,8 @@ EOF
 
 cat >/etc/pam.d/su-l <<'EOF'
 #%PAM-1.0
-auth      include     common-auth
+auth      required    pam_u2f.so authfile=/etc/u2f_mappings cue
+auth      requisite   pam_deny.so
 account   include     common-account
 password  include     common-password
 session   include     common-session
@@ -328,7 +328,6 @@ auth      optional    pam_faildelay.so delay=3000000
 auth      requisite   pam_nologin.so
 session   required    pam_loginuid.so
 auth      include     common-auth
-account   required    pam_access.so
 session   required    pam_limits.so
 account   include     common-account
 session   include     common-session

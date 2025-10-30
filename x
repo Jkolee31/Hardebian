@@ -215,18 +215,13 @@ EOF
 
 cat >/etc/pam.d/common-account <<'EOF'
 #%PAM-1.0
-account   required    pam_faillock.so 
-account   [success=1  new_authtok_reqd=done default=ignore]  pam_unix.so 
-account   requisite   pam_deny.so
-account   required    pam_permit.so
+account   required    pam_unix.so 
 EOF
 
 cat >/etc/pam.d/common-password <<'EOF'
 #%PAM-1.0
-password  requisite   pam_pwquality.so retry=3
 password  [success=1  default=ignore]  pam_unix.so obscure use_authtok try_first_pass yescrypt
 password  requisite   pam_deny.so
-password  required    pam_permit.so
 EOF
 
 cat >/etc/pam.d/common-auth <<'EOF'
@@ -304,26 +299,6 @@ auth      required    pam_deny.so
 account   required    pam_deny.so
 password  required    pam_deny.so
 session   required    pam_deny.so
-EOF
-
-cat >/etc/pam.d/lightdm <<'EOF'
-#%PAM-1.0
-auth      requisite   pam_nologin.so
-auth      include     common-auth
-account   include     common-account
-session   required    pam_limits.so
-session   required    pam_loginuid.so
-session   include     common-session
-password  include     common-password
-EOF
-
-cat >/etc/pam.d/lightdm-greeter <<'EOF'
-#%PAM-1.0
-auth      required    pam_permit.so
-account   required    pam_permit.so
-password  required    pam_deny.so
-session   required    pam_unix.so
-session   include     common-session
 EOF
 
 cat >/etc/pam.d/login <<'EOF'

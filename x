@@ -215,7 +215,7 @@ EOF
 
 cat >/etc/pam.d/common-account <<'EOF'
 #%PAM-1.0
-account   required    pam_unix.so 
+account   required    pam_unix.so
 EOF
 
 cat >/etc/pam.d/common-password <<'EOF'
@@ -226,7 +226,8 @@ EOF
 
 cat >/etc/pam.d/common-auth <<'EOF'
 #%PAM-1.0
-auth      required    pam_u2f.so authfile=/etc/u2f_mappings cue
+auth      sufficient  pam_u2f.so authfile=/etc/u2f_mappings
+auth      [success=1  default=ignore]  pam_unix.so try_first_pass
 auth      requisite   pam_deny.so
 EOF
 
@@ -251,8 +252,7 @@ EOF
 
 cat >/etc/pam.d/sudo <<'EOF'
 #%PAM-1.0
-auth      required    pam_u2f.so authfile=/etc/u2f_mappings cue
-auth      requisite   pam_deny.so
+auth      include     common-auth
 account   include     common-account
 password  include     common-password
 session   include     common-session
@@ -260,8 +260,7 @@ EOF
 
 cat >/etc/pam.d/sudo-i <<'EOF'
 #%PAM-1.0
-auth      required    pam_u2f.so authfile=/etc/u2f_mappings cue
-auth      requisite   pam_deny.so
+auth      include     common-auth
 account   include     common-account
 password  include     common-password
 session   include     common-session
@@ -269,16 +268,14 @@ EOF
 
 cat >/etc/pam.d/sshd <<'EOF'
 #%PAM-1.0
-auth      required    pam_u2f.so authfile=/etc/u2f_mappings cue
-auth      requisite   pam_deny.so
+auth      include     common-auth
 account   include     common-account
 session   include     common-session
 EOF
 
 cat >/etc/pam.d/su <<'EOF'
 #%PAM-1.0
-auth      required    pam_u2f.so authfile=/etc/u2f_mappings cue
-auth      requisite   pam_deny.so
+auth      include     common-auth
 account   include     common-account
 password  include     common-password
 session   include     common-session
@@ -286,8 +283,7 @@ EOF
 
 cat >/etc/pam.d/su-l <<'EOF'
 #%PAM-1.0
-auth      required    pam_u2f.so authfile=/etc/u2f_mappings cue
-auth      requisite   pam_deny.so
+auth      include     common-auth
 account   include     common-account
 password  include     common-password
 session   include     common-session
@@ -305,8 +301,8 @@ cat >/etc/pam.d/login <<'EOF'
 #%PAM-1.0
 auth      optional    pam_faildelay.so delay=3000000
 auth      requisite   pam_nologin.so
-session   required    pam_loginuid.so
 auth      include     common-auth
+account   required    pam_access.so
 session   required    pam_limits.so
 account   include     common-account
 session   include     common-session

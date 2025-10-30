@@ -35,9 +35,12 @@ sudo iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 sudo iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 sudo iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
 sudo iptables -A OUTPUT -m conntrack --ctstate INVALID -j DROP
+sudo iptables -A INPUT -p udp -j DROP
+sudo iptables -A INPUT -p tcp --syn -j DROP
 sudo iptables -A OUTPUT -o eth0 -p udp --dport 51820 -j ACCEPT
 sudo iptables -A INPUT -i wg0-mullvad -j ACCEPT
 sudo iptables -A OUTPUT -o wg0-mullvad -j ACCEPT
+sudo iptables -A INPUT -j DROP
 sudo iptables -A OUTPUT -o wg0-mullvad -p udp --dport 53 -j ACCEPT
 sudo iptables -A OUTPUT -o wg0-mullvad -p tcp --dport 80 -j ACCEPT 
 sudo iptables -A OUTPUT -o wg0-mullvad -p tcp --dport 443 -j ACCEPT

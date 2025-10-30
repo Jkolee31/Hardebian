@@ -239,6 +239,8 @@ EOF
 cat >/etc/pam.d/common-session <<'EOF'
 #%PAM-1.0
 session   required    pam_limits.so
+session	  required    pam_env.so
+session	  optional	   pam_elogind.so
 session   optional    pam_umask.so umask=027
 session   required    pam_unix.so
 EOF
@@ -246,6 +248,8 @@ EOF
 cat >/etc/pam.d/common-session-noninteractive <<'EOF'
 #%PAM-1.0
 session   required    pam_limits.so
+session	  required    pam_env.so
+session	  optional	   pam_elogind.so
 session   optional    pam_umask.so umask=027
 session   required    pam_unix.so
 EOF

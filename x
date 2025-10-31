@@ -34,8 +34,7 @@ sudo iptables -A OUTPUT -o lo -j ACCEPT
 sudo iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 sudo iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 sudo iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
-sudo iptables -A OUTPUT -m conntrack --ctstate INVALID -j DROP
-sudo iptables -A OUTPUT -o eth0 -p udp --dport 51820 -j ACCEPT
+sudo iptables -A OUTPUT -p udp --dport 51820 -j ACCEPT
 sudo iptables -A INPUT -i wg0-mullvad -j ACCEPT
 sudo iptables -A OUTPUT -o wg0-mullvad -j ACCEPT
 sudo iptables -A OUTPUT -o wg0-mullvad -p udp --dport 53 -j ACCEPT
@@ -48,7 +47,6 @@ sudo ip6tables -P INPUT DROP
 sudo ip6tables -P OUTPUT DROP
 sudo ip6tables -P FORWARD DROP
 sudo netfilter-persistent save
-sudo systemctl enable netfilter-persistent
 
 install -d /etc/apt/preferences.d
 cat >/etc/apt/preferences.d/deny-ssh.pref <<'EOF'
@@ -236,7 +234,7 @@ cat >/etc/pam.d/common-session <<'EOF'
 #%PAM-1.0
 session   required    pam_limits.so
 session	  required    pam_env.so
-session	  optional	   pam_elogind.so
+session	  optional	   pam_systemd.so
 session   optional    pam_umask.so umask=027
 session   required    pam_unix.so
 EOF
@@ -245,7 +243,7 @@ cat >/etc/pam.d/common-session-noninteractive <<'EOF'
 #%PAM-1.0
 session   required    pam_limits.so
 session	  required    pam_env.so
-session	  optional	   pam_elogind.so
+session	  optional	   pam_systemd.so
 session   optional    pam_umask.so umask=027
 session   required    pam_unix.so
 EOF
@@ -529,7 +527,7 @@ chattr +i /etc/host.conf
 chattr +i /etc/hosts.allow
 chattr +i /etc/hosts.deny
 chattr +i /etc/login.defs
-chattr -R +i /etc/default
+chattr -R +i /etc/default/grub
 chattr +i /etc/passwd
 chattr +i /etc/passwd-
 chattr +i /etc/securetty

@@ -455,12 +455,12 @@ install hfs /bin/false
 install hfsplus /bin/false
 install squashfs /bin/false
 install udf /bin/false
-install cifs /bin/true
-install nfs /bin/true
-install nfsv3 /bin/true
-install nfsv4 /bin/true
-install ksmbd /bin/true
-install gfs2 /bin/true
+install cifs /bin/false
+install nfs /bin/false
+install nfsv3 /bin/false
+install nfsv4 /bin/false
+install ksmbd /bin/false
+install gfs2 /bin/false
 install vivid /bin/false
 install bluetooth /bin/false
 install btusb /bin/false
@@ -520,7 +520,6 @@ proc                                      /proc                      proc       
 " >> /etc/fstab
 
 # LOCKDOWN
-chmod o-rx /usr/bin/as
 chattr +i /etc/fstab
 chattr +i /etc/adduser.conf
 chattr +i /etc/group

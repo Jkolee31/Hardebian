@@ -10,7 +10,7 @@ echo 'APT::Get::AllowUnauthenticated "false";' >> /etc/apt/apt.conf.d/98-hardeni
 echo 'APT::Install-Suggests "false";' >> /etc/apt/apt.conf.d/98-hardening 
 echo 'APT::Install-Recommends "false";' >> /etc/apt/apt.conf.d/98-hardening 
 apt update
-apt purge -y  zram* yad* pci* papirus* orca* nfs* network-manager* pmount* libspa-0.2-bluetooth libspa-0.2-libcamera libpocketsphinx3 libjansson4 acpi* anacron* avahi* atmel* bc bind9* dns* fastfetch fonts-noto* fprint* isc-dhcp* lxc* docker* podman* xen* bochs* uml* vagrant* libssh* ssh* openssh* acpi* samba* winbind* qemu* libvirt* virt* cron* avahi* cup* print* rsync* virtual* sane* rpc* bind* nfs* blue* pp* spee* espeak* mobile* wireless* bc perl dictionaries-common doc-debian emacs* ethtool iamerican ibritish ienglish-common inet* ispell task-english util-linux-locales wamerican tasksel* vim*
+apt purge -y  zram* pci* pmount* acpi* anacron* avahi* atmel* bc bind9* dns* fastfetch fonts-noto* fprint* isc-dhcp* lxc* docker* podman* xen* bochs* uml* vagrant* libssh* ssh* openssh* acpi* samba* winbind* qemu* libvirt* virt* cron* avahi* cup* print* rsync* virtual* sane* rpc* bind* nfs* blue* pp* spee* espeak* mobile* wireless* bc perl dictionaries-common doc-debian emacs* ethtool iamerican ibritish ienglish-common inet* ispell task-english util-linux-locales wamerican tasksel* vim* os-prober* netcat* libssh*
 
 
 # FIREWALL (MULLVAD REQUIRED)
@@ -18,39 +18,46 @@ apt install iptables iptables-persistent netfilter-persistent
 systemctl enable netfilter-persistent
 service netfilter-persistent start
 iptables -F
-iptables -t nat -F
-iptables -t mangle -F
 iptables -X
 iptables -Z
-iptables -P INPUT DROP
-iptables -P OUTPUT DROP
-iptables -P FORWARD DROP
+iptables -t nat -F
+iptables -t nat -X
+iptables -t nat -Z
+iptables -t mangle -F
+iptables -t mangle -X
+iptables -t mangle -Z
 iptables -P INPUT DROP
 iptables -P FORWARD DROP
 iptables -P OUTPUT DROP
 iptables -A INPUT -i lo -j ACCEPT
-iptables -A INPUT -i wg0-mullvad -j ACCEPT
-iptables -A INPUT -p tcp -m conntrack --ctstate ESTABLISHED -j ACCEPT
-iptables -A INPUT -p udp -m conntrack --ctstate ESTABLISHED -j ACCEPT
-iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
 iptables -A OUTPUT -o lo -j ACCEPT
-iptables -A OUTPUT -o wg0-mullvad -j ACCEPT
-iptables -A OUTPUT -p tcp -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT
-iptables -A OUTPUT -p udp -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT
+iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
 iptables -A OUTPUT -m conntrack --ctstate INVALID -j DROP
-iptables -A OUTPUT -p udp -m udp --dport 51820 -j ACCEPT
-iptables -A OUTPUT -o wg0-mullvad -p udp -m udp --dport 53 -j ACCEPT
-iptables -A OUTPUT -o wg0-mullvad -p tcp -m tcp --dport 443 -j ACCEPT
-iptables -A OUTPUT -o wg0-mullvad -p tcp -m tcp --dport 80 -j ACCEPT
+iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+iptables -A OUTPUT -m conntrack --ctstate NEW,ESTABLISHED,RELATED -j ACCEPT
+iptables -A INPUT -i wg0-mullvad -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+iptables -A OUTPUT -o wg0-mullvad -j ACCEPT
+iptables -A OUTPUT -p udp --dport 51820 -j ACCEPT
+##########-PRE-MULLVAD-RULES-##################### 
+#iptables -A OUTPUT -p udp --dport 53 -j ACCEPT
+#iptables -A OUTPUT -p udp --dport 123 -j ACCEPT
+#iptables -A OUTPUT -p tcp --dport 443 -j ACCEPT
+#iptables -A OUTPUT -p tcp --dport 80 -j ACCEPT
+##########-PRE-MULLVAD-RULES-######################
+iptables -A OUTPUT ! -o wg0-mullvad -m conntrack --ctstate NEW -p udp --dport 51820 -j ACCEPT
+iptables -A OUTPUT ! -o wg0-mullvad -m conntrack --ctstate NEW -j DROP
 ip6tables -F
 ip6tables -X
 ip6tables -Z
 ip6tables -P INPUT DROP
-ip6tables -P OUTPUT DROP
 ip6tables -P FORWARD DROP
+ip6tables -P OUTPUT DROP
 iptables-save > /etc/iptables/rules.v4
-ip6tables-save > /etc/iptables/rules.v6
+iptables-save > /etc/iptables/rules.v6
 netfilter-persistent save
+
+
+
 
 install -d /etc/apt/preferences.d
 cat >/etc/apt/preferences.d/deny-ssh.pref <<'EOF'
@@ -99,6 +106,18 @@ Pin: release *
 Pin-Priority: -1
 
 Package: sane*
+Pin: release *
+Pin-Priority: -1
+
+Package: netcat*
+Pin: release *
+Pin-Priority: -1
+
+Package: os-prober*
+Pin: release *
+Pin-Priority: -1
+
+Package: make*
 Pin: release *
 Pin-Priority: -1
 

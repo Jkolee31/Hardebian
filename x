@@ -17,26 +17,24 @@ apt purge -y  zram* yad* pci* papirus* orca* nfs* network-manager* pmount* libsp
 apt install iptables iptables-persistent netfilter-persistent
 systemctl enable netfilter-persistent
 service netfilter-persistent start
-sudo iptables -F
-sudo iptables -X
-sudo iptables -Z
-sudo iptables -t nat -F
-sudo iptables -t nat -X
-sudo iptables -t nat -Z
-sudo iptables -t mangle -F
-sudo iptables -t mangle -X
-sudo iptables -t mangle -Z
-sudo iptables -P INPUT DROP
-sudo iptables -P OUTPUT DROP
-sudo iptables -P FORWARD DROP
-sudo iptables -A INPUT -i lo -j ACCEPT
-sudo iptables -A OUTPUT -o lo -j ACCEPT
-sudo iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-sudo iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-sudo iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
-sudo iptables -A OUTPUT -p udp --dport 51820 -j ACCEPT
+iptables -F
+iptables -t nat -F
+iptables -t mangle -F
+iptables -X
+iptables -Z
+iptables -P INPUT DROP
+iptables -P OUTPUT DROP
+iptables -P FORWARD DROP
+iptables -A INPUT -i lo -j ACCEPT
+iptables -A OUTPUT -o lo -j ACCEPT
 sudo iptables -A INPUT -i wg0-mullvad -j ACCEPT
 sudo iptables -A OUTPUT -o wg0-mullvad -j ACCEPT
+iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
+iptables -A OUTPUT -m conntrack --ctstate INVALID -j DROP
+iptables -A FORWARD -m conntrack --ctstate INVALID -j DROP
+iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+sudo iptables -A OUTPUT -p udp --dport 51820 -j ACCEPT
 sudo iptables -A OUTPUT -o wg0-mullvad -p udp --dport 53 -j ACCEPT
 sudo iptables -A OUTPUT -o wg0-mullvad -p tcp --dport 443 -j ACCEPT 
 sudo iptables -A OUTPUT -o wg0-mullvad -p tcp --dport 80 -j ACCEPT
@@ -470,47 +468,70 @@ EOF
 # KERNEL
 rm -r /etc/sysctl.d
 rm -r /usr/lib/sysctl.d
-echo "kernel.kptr_restrict=2
-kernel.dmesg_restrict=1
-kernel.printk=3 3 3 3
-kernel.unprivileged_bpf_disabled=1
-net.core.bpf_jit_harden=2
-dev.tty.ldisc_autoload=0
-vm.unprivileged_userfaultfd=0
-kernel.kexec_load_disabled=1
-kernel.sysrq=4
-kernel.unprivileged_userns_clone=0
-kernel.perf_event_paranoid=3
-net.ipv4.tcp_syncookies=1
-net.ipv4.tcp_rfc1337=1
-net.ipv4.conf.all.rp_filter=1
-net.ipv4.conf.default.rp_filter=1
-net.ipv4.conf.all.accept_redirects=0
-net.ipv4.conf.default.accept_redirects=0
-net.ipv4.conf.all.secure_redirects=0
-net.ipv4.conf.default.secure_redirects=0
-net.ipv6.conf.all.accept_redirects=0
-net.ipv6.conf.default.accept_redirects=0
-net.ipv4.conf.all.send_redirects=0
-net.ipv4.conf.default.send_redirects=0
-net.ipv4.icmp_echo_ignore_all=1
-net.ipv4.conf.all.accept_source_route=0
-net.ipv4.conf.default.accept_source_route=0
-net.ipv6.conf.all.accept_source_route=0
-net.ipv6.conf.default.accept_source_route=0
-net.ipv6.conf.all.accept_ra=0
-net.ipv6.conf.default.accept_ra=0
-net.ipv4.tcp_sack=0
-net.ipv4.tcp_dsack=0
-net.ipv4.tcp_fack=0
-net.ipv4.tcp_timestamps=0
-kernel.yama.ptrace_scope=2
-vm.mmap_rnd_bits=32
-vm.mmap_rnd_compat_bits=16
-fs.protected_symlinks=1
-fs.protected_hardlinks=1
-net.ipv6.conf.all.disable_ipv6=1
-net.ipv6.conf.default.disable_ipv6=1
+echo "#kernel.modules_disabled = 1
+net.ipv4.ip_forward = 1
+#user.max_user_namespaces = 0
+dev.tty.ldisc_autoload = 0
+dev.tty.legacy_tiocsti = 0
+fs.protected_fifos = 2
+fs.protected_hardlinks = 1
+fs.protected_regular = 2
+fs.protected_symlinks = 1
+fs.suid_dumpable = 0
+kernel.core_uses_pid = 1
+kernel.dmesg_restrict = 1
+kernel.kexec_load_disabled = 1
+kernel.kptr_restrict = 2
+kernel.perf_event_paranoid = 3
+kernel.printk = 3 3 3 3
+kernel.randomize_va_space = 2
+kernel.sysrq = 0
+kernel.unprivileged_bpf_disabled = 1
+kernel.unprivileged_userns_clone = 1
+kernel.yama.ptrace_scope = 3
+net.core.bpf_jit_harden = 2
+net.ipv4.tcp_timestamps = 0
+net.ipv4.conf.all.accept_redirects = 0
+net.ipv4.conf.all.accept_source_route = 0
+net.ipv4.conf.all.log_martians = 1
+net.ipv4.conf.all.rp_filter = 1
+net.ipv4.conf.all.secure_redirects = 0
+net.ipv4.conf.all.send_redirects = 0
+net.ipv4.conf.all.shared_media = 0
+net.ipv4.conf.default.accept_redirects = 0
+net.ipv4.conf.default.accept_source_route = 0
+net.ipv4.conf.default.log_martians = 1
+net.ipv4.conf.default.rp_filter = 1
+net.ipv4.conf.default.secure_redirects = 0
+net.ipv4.conf.default.send_redirects = 0
+net.ipv4.conf.default.shared_media = 0
+net.ipv4.icmp_echo_ignore_all = 1
+net.ipv4.icmp_echo_ignore_broadcasts = 1
+net.ipv4.icmp_ignore_bogus_error_responses = 1
+net.ipv4.tcp_dsack = 0
+net.ipv4.tcp_rfc1337 = 1
+net.ipv4.tcp_sack = 0
+net.ipv4.tcp_syncookies = 1
+net.ipv4.tcp_timestamps = 0
+net.ipv6.conf.all.accept_ra = 0
+net.ipv6.conf.all.accept_redirects = 0
+net.ipv6.conf.all.accept_source_route = 0
+net.ipv6.conf.all.forwarding = 0
+net.ipv6.conf.default.accept_ra = 0
+net.ipv6.conf.default.accept_ra_defrtr = 0
+net.ipv6.conf.default.accept_ra_pinfo = 0
+net.ipv6.conf.default.accept_ra_rtr_pref = 0
+net.ipv6.conf.default.accept_redirects = 0
+net.ipv6.conf.default.accept_source_route = 0
+net.ipv6.conf.default.autoconf = 0
+net.ipv6.conf.default.dad_transmits = 0
+net.ipv6.conf.default.router_solicitations = 0
+net.ipv6.conf.eth0.accept_ra_rtr_pref = 0
+vm.unprivileged_userfaultfd = 0
+vm.mmap_rnd_bits = 32
+vm.mmap_rnd_compat_bits = 16
+net.ipv6.conf.all.disable_ipv6 = 1
+net.ipv6.conf.default.disable_ipv6 = 1
 " > /etc/sysctl.conf
 sysctl --system
 

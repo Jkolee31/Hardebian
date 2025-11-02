@@ -25,28 +25,32 @@ iptables -Z
 iptables -P INPUT DROP
 iptables -P OUTPUT DROP
 iptables -P FORWARD DROP
+iptables -P INPUT DROP
+iptables -P FORWARD DROP
+iptables -P OUTPUT DROP
 iptables -A INPUT -i lo -j ACCEPT
-iptables -A OUTPUT -o lo -j ACCEPT
-sudo iptables -A INPUT -i wg0-mullvad -j ACCEPT
-sudo iptables -A OUTPUT -o wg0-mullvad -j ACCEPT
+iptables -A INPUT -i wg0-mullvad -j ACCEPT
+iptables -A INPUT -p tcp -m conntrack --ctstate ESTABLISHED -j ACCEPT
+iptables -A INPUT -p udp -m conntrack --ctstate ESTABLISHED -j ACCEPT
 iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
+iptables -A OUTPUT -o lo -j ACCEPT
+iptables -A OUTPUT -o wg0-mullvad -j ACCEPT
+iptables -A OUTPUT -p tcp -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT
+iptables -A OUTPUT -p udp -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT
 iptables -A OUTPUT -m conntrack --ctstate INVALID -j DROP
-iptables -A FORWARD -m conntrack --ctstate INVALID -j DROP
-iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-sudo iptables -A OUTPUT -p udp --dport 51820 -j ACCEPT
-sudo iptables -A OUTPUT -o wg0-mullvad -p udp --dport 53 -j ACCEPT
-sudo iptables -A OUTPUT -o wg0-mullvad -p tcp --dport 443 -j ACCEPT 
-sudo iptables -A OUTPUT -o wg0-mullvad -p tcp --dport 80 -j ACCEPT
-sudo ip6tables -F
-sudo ip6tables -X
-sudo ip6tables -Z
-sudo ip6tables -P INPUT DROP
-sudo ip6tables -P OUTPUT DROP
-sudo ip6tables -P FORWARD DROP
-sudo iptables-save > /etc/iptables/rules.v4
-sudo ip6tables-save > /etc/iptables/rules.v6
-sudo netfilter-persistent save
+iptables -A OUTPUT -p udp -m udp --dport 51820 -j ACCEPT
+iptables -A OUTPUT -o wg0-mullvad -p udp -m udp --dport 53 -j ACCEPT
+iptables -A OUTPUT -o wg0-mullvad -p tcp -m tcp --dport 443 -j ACCEPT
+iptables -A OUTPUT -o wg0-mullvad -p tcp -m tcp --dport 80 -j ACCEPT
+ip6tables -F
+ip6tables -X
+ip6tables -Z
+ip6tables -P INPUT DROP
+ip6tables -P OUTPUT DROP
+ip6tables -P FORWARD DROP
+iptables-save > /etc/iptables/rules.v4
+ip6tables-save > /etc/iptables/rules.v6
+netfilter-persistent save
 
 install -d /etc/apt/preferences.d
 cat >/etc/apt/preferences.d/deny-ssh.pref <<'EOF'

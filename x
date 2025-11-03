@@ -34,8 +34,6 @@ iptables -A OUTPUT -o lo -j ACCEPT
 iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
 iptables -A OUTPUT -m conntrack --ctstate INVALID -j DROP
 iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-iptables -A OUTPUT -m conntrack --ctstate NEW,ESTABLISHED,RELATED -j ACCEPT
-iptables -A INPUT -i wg0-mullvad -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 iptables -A OUTPUT -o wg0-mullvad -j ACCEPT
 iptables -A OUTPUT -p udp --dport 51820 -j ACCEPT
 ##########-PRE-MULLVAD-RULES-##################### 

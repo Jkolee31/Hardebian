@@ -2,12 +2,7 @@
 
 set -euo pipefail
 
-apt update#!/usr/bin/env bash
-
-set -euo pipefail
-
 apt update
-apt install git curl wget ca-cert* gpg gnupg lsb-release apt-transport-https
 
 # PRE CONFIG/AUDIT
 echo 'APT::Get::AllowUnauthenticated "false";' >> /etc/apt/apt.conf.d/98-hardening

@@ -851,7 +851,7 @@ chattr +i /etc/shadow
 chattr +i /etc/shadow-
 chattr +i /etc/shells
 chattr -R +i /etc/pam.d
-chattr +i /etc/sysctl.conf
+chattr +i /usr/lib/sysctl.d/sysctl.conf
 chattr -R +i /etc/modprobe.d
 chattr +i /etc/services
 chattr +i /etc/sudoers

@@ -824,13 +824,13 @@ sudo chmod -f 0600 /var/spool/at/*
 cd
 
 # LOCKDOWN
-find / -perm -4000 -o -perm -2000 -exec sudo chmod a-s {} \; 2>/dev/null
-find / -perm -4000 -exec sudo chmod u-s {} \;
-find / -perm -4000 -exec sudo chmod g-s {} \;
-find / -perm -2000 -exec sudo chmod u-s {} \;
-find / -perm -2000 -exec sudo chmod g-s {} \;
-sudo chmod u+s /usr/bin/sudo
-sudo chmod u+s /bin/sudo
+find / -perm -4000 -o -perm -2000 -exec chmod a-s {} \; 2>/dev/null
+find / -perm -4000 -exec chmod u-s {} \;
+find / -perm -4000 -exec chmod g-s {} \;
+find / -perm -2000 -exec chmod u-s {} \;
+find / -perm -2000 -exec chmod g-s {} \;
+chmod u+s /usr/bin/sudo
+chmod u+s /bin/sudo
 chattr +i /etc/fstab
 chattr +i /etc/adduser.conf
 chattr +i /etc/group

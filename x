@@ -28,6 +28,8 @@ rm /home/dev/debian-cis/bin/hardening/disable_print_server.sh
 rm /home/dev/debian-cis/bin/hardening/disable_avahi_server.sh
 rm /home/dev/debian-cis/bin/hardening/disable_xwindow_system.sh
 rm /home/dev/debian-cis/bin/hardening/install_tripwire.sh
+rm /home/dev/debian-cis/bin/hardening/install_syslog-ng.sh
+
 bin/hardening.sh --apply --allow-unsupported-distribution
 bin/hardening.sh --apply --allow-unsupported-distribution
 bin/hardening.sh --apply --allow-unsupported-distribution
@@ -113,6 +115,18 @@ Pin: release *
 Pin-Priority: -1
 
 Package: virt*
+Pin: release *
+Pin-Priority: -1
+
+Package: courier*
+Pin: release *
+Pin-Priority: -1
+
+Package: dma*
+Pin: release *
+Pin-Priority: -1
+
+Package: tripwire*
 Pin: release *
 Pin-Priority: -1
 
@@ -360,6 +374,14 @@ session   [success=ok ignore=ignore module_unknown=ignore default=bad] pam_selin
 session   include     common-session
 session   [success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux.so open
 password  include     common-password
+EOF
+
+cat >/etc/pam.d/lightdm-greeter <<'EOF'
+#%PAM-1.0
+auth      requisite   pam_nologin
+password  required     pam_unix.so
+session   optional     pam_systemd.so
+session   include     common-session
 EOF
 
 cat >/etc/pam.d/newusers <<'EOF'

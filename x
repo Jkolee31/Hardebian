@@ -62,8 +62,8 @@ iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
 iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 iptables -A INPUT -i wg0-mullvad -j ACCEPT
-iptables -A OUTPUT -o wg0-mullvad -j ACCEPT
 iptables -A OUTPUT -p udp --dport 51820 -j ACCEPT
+iptables -A OUTPUT -o wg0-mullvad -j ACCEPT
 iptables -A OUTPUT -j DROP
 ip6tables -F
 ip6tables -X

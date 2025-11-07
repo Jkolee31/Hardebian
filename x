@@ -415,11 +415,11 @@ dpkg-reconfigure xserver-xorg-legacy
 echo "order hosts" >> /etc/host.conf
 echo "*            -          maxlogins    1
       root         -          maxlogins    5
-      *            soft       priority     0
       *            hard       nproc        2048
       root         hard       nproc        65536
+      *            soft       priority     0
       *            soft       core         0
-      *            hard       core         unlimited" > /etc/security/limits.conf.d/55-limits.conf
+      *            hard       core         unlimited" > /etc/security/limits.d/limits.conf
 echo "ProcessSizeMax=0
 Storage=none" >> /etc/systemd/coredump.conf
 echo "ulimit -c 0" >> /etc/profile
@@ -430,7 +430,7 @@ echo "ALL: ALL" > /etc/hosts.deny
 echo "-:ALL EXCEPT dev:tty1" > /etc/security/access.conf
 echo "-:ALL EXCEPT dev:LOCAL" >> /etc/security/access.conf
 echo "-:dev:ALL EXCEPT LOCAL" >> /etc/security/access.conf
-echo "+:dev:tty1" >> /etc/security/access.conf
+echo "+:dev:tty1 tty2 tty3" >> /etc/security/access.conf
 echo "-:root:ALL" >> /etc/security/access.conf
 echo "-:ALL:ALL" >> /etc/security/access.conf
 

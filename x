@@ -268,7 +268,6 @@ EOF
 
 cat >/etc/pam.d/common-account <<'EOF'
 #%PAM-1.0
-account   required    pam_access.so
 account   required    pam_unix.so
 EOF
 
@@ -355,6 +354,8 @@ cat >/etc/pam.d/login <<'EOF'
 auth      optional    pam_faildelay.so delay=3000000
 auth      requisite   pam_nologin.so
 auth      required    pam_u2f.so authfile=/etc/u2f_mappings
+account   required    pam_access.so
+session   required    pam_limits.so
 account   include     common-account
 session   include     common-session
 password  include     common-password
@@ -374,6 +375,7 @@ EOF
 cat >/etc/pam.d/lightdm-greeter <<'EOF'
 #%PAM-1.0
 auth      requisite    pam_nologin
+account   include      common-account
 password  required     pam_unix.so
 session   optional     pam_systemd.so
 session   include      common-session

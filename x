@@ -62,9 +62,13 @@ iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
 iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 iptables -A INPUT -i wg0-mullvad -j ACCEPT
-iptables -A OUTPUT -p udp --dport 51820 -j ACCEPT
 iptables -A OUTPUT -o wg0-mullvad -j ACCEPT
-iptables -A OUTPUT -j DROP
+iptables -A OUTPUT -p udp --dport 51820 -j ACCEPT
+iptables -A OUTPUT -o wg0-mullvad -p udp --dport 53 -j ACCEPT
+iptables -A OUTPUT -o wg0-mullvad -p udp --dport 123 -j ACCEPT
+iptables -A OUTPUT -o wg0-mullvad -p tcp --dport 443 -j ACCEPT
+iptables -A OUTPUT -o wg0-mullvad -p tcp --dport 80 -j ACCEPT
+iptables -A OUTPUT ! -o wg0-mullvad -m conntrack ! --ctstate ESTABLISHED,RELATED -j DROP
 ip6tables -F
 ip6tables -X
 ip6tables -Z
@@ -72,7 +76,7 @@ ip6tables -P INPUT DROP
 ip6tables -P FORWARD DROP
 ip6tables -P OUTPUT DROP
 iptables-save > /etc/iptables/rules.v4
-iptables-save > /etc/iptables/rules.v6
+ip6tables-save > /etc/iptables/rules.v6
 netfilter-persistent save
 
 install -d /etc/apt/preferences.d

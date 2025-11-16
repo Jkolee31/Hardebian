@@ -56,34 +56,31 @@ iptables -t mangle -Z
 iptables -P INPUT DROP
 iptables -P FORWARD DROP
 iptables -P OUTPUT DROP
-iptables -N TCP
-iptables -N UDP
-iptables -A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
-iptables -A OUTPUT -m conntrack --ctstate INVALID -j DROP
-iptables -A INPUT -i lo -j ACCEPT
+iptables -A INPUT  -i lo -j ACCEPT
 iptables -A OUTPUT -o lo -j ACCEPT
-iptables -A INPUT -i wg0-mullvad -j ACCEPT
-iptables -A OUTPUT -o wg0-mullvad -j ACCEPT
-iptables -A INPUT -i wg0-mullvad -p udp -m conntrack --ctstate NEW -j UDP
-iptables -A INPUT -i wg0-mullvad -p tcp -m tcp --syn -m conntrack --ctstate NEW -j TCP
-iptables -A TCP -p tcp --dport 80 -j ACCEPT
-iptables -A TCP -p tcp --dport 443 -j ACCEPT
-iptables -A UDP -p udp --dport 53 -j ACCEPT
-iptables -A INPUT -p udp -j DROP
-iptables -A INPUT -p tcp -j DROP
-iptables -A INPUT  -j DROP
+iptables -A INPUT  -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+iptables -A INPUT  -m conntrack --ctstate INVALID -j DROP
+iptables -A OUTPUT -m conntrack --ctstate INVALID -j DROP
 iptables -A OUTPUT ! -o wg0-mullvad -p udp --dport 51820 -m conntrack --ctstate NEW -j ACCEPT
-iptables -A OUTPUT -j DROP
+iptables -A INPUT  -i wg0-mullvad -j ACCEPT
+iptables -A OUTPUT -o wg0-mullvad -j ACCEPT
+iptables -A OUTPUT -o wg0-mullvad -p udp --dport 53  -j ACCEPT
+iptables -A OUTPUT -o wg0-mullvad -p udp --dport 123 -j ACCEPT
+iptables -A OUTPUT -o wg0-mullvad -p tcp --dport 443 -j ACCEPT
+iptables -A OUTPUT -o wg0-mullvad -p tcp --dport 80  -j ACCEPT
+iptables -A INPUT  ! -i wg0-mullvad -m conntrack --ctstate NEW -j DROP
+iptables -A OUTPUT ! -o wg0-mullvad -m conntrack --ctstate NEW -j DROP
 ip6tables -F
 ip6tables -X
 ip6tables -Z
 ip6tables -P INPUT DROP
 ip6tables -P FORWARD DROP
 ip6tables -P OUTPUT DROP
-iptables-save > /etc/iptables/rules.v4
-ip6tables-save > /etc/iptables/rules.v6
+
+# 8. Save rules
+iptables-save   > /etc/iptables/rules.v4
+ip6tables-save  > /etc/iptables/rules.v6
 netfilter-persistent save
 
 

@@ -53,28 +53,27 @@ iptables -t nat -Z
 iptables -t mangle -F
 iptables -t mangle -X
 iptables -t mangle -Z
-iptables -N TCP
-iptables -N UDP
 iptables -P INPUT DROP
 iptables -P FORWARD DROP
 iptables -P OUTPUT DROP
+iptables -N TCP
+iptables -N UDP
 iptables -A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-iptables -A INPUT -i lo -j ACCEPT
-iptables -A INPUT ! -i lo -d 127.0.0.0/8 -j REJECT
+iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
+iptables -A OUTPUT -m conntrack --ctstate INVALID -j DROP
+iptables -A INPUT -i lo -j ACCEPT
+iptables -A OUTPUT -o lo -j ACCEPT
 iptables -A INPUT -i wg0-mullvad -j ACCEPT
+iptables -A OUTPUT -o wg0-mullvad -j ACCEPT
 iptables -A INPUT -i wg0-mullvad -p udp -m conntrack --ctstate NEW -j UDP
-iptables -A INPUT -i wg0-mullvad -p tcp --syn -m conntrack --ctstate NEW -j TCP
+iptables -A INPUT -i wg0-mullvad -p tcp -m tcp --syn -m conntrack --ctstate NEW -j TCP
+iptables -A TCP -p tcp --dport 80 -j ACCEPT
 iptables -A TCP -p tcp --dport 443 -j ACCEPT
-iptables -A UDP -p udp --dport 53  -j ACCEPT
+iptables -A UDP -p udp --dport 53 -j ACCEPT
 iptables -A INPUT -p udp -j DROP
 iptables -A INPUT -p tcp -j DROP
 iptables -A INPUT  -j DROP
-iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-iptables -A OUTPUT -o lo -j ACCEPT
-iptables -A OUTPUT ! -o lo -d 127.0.0.0/8 -j DROP
-iptables -A OUTPUT -m conntrack --ctstate INVALID -j DROP
-iptables -A OUTPUT -o wg0-mullvad -j ACCEPT
 iptables -A OUTPUT ! -o wg0-mullvad -p udp --dport 51820 -m conntrack --ctstate NEW -j ACCEPT
 iptables -A OUTPUT -j DROP
 ip6tables -F
@@ -245,16 +244,17 @@ EOF
 
 # INSTALL PACKAGES
 apt update 
-apt install -y pamu2fcfg libpam-u2f rsyslog chrony libpam-tmpdir fail2ban needrestart aptitude apt-listchanges acct sysstat rkhunter chkrootkit clamav clamdscan clamav-freshclam debsums apt-show-versions tiger wget gnupg lsb-release apt-transport-https unzip patch pulseaudio pulseaudio-utils pavucontrol alsa-utils lynis macchanger unhide tcpd haveged auditd fonts-liberation extrepo timeshift gnome-terminal gnome-brave-icon-theme breeze-gtk-theme bibata* tcpd macchanger mousepad xfce4 libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xserver-xorg xinit xserver-xorg-legacy xfce4-pulse* xfce4-whisk* lightdm lightdm-gtk-greeter lightdm-gtk-greeter-settings opensnitch* python3-opensnitch*
+apt install -y pamu2fcfg libpam-u2f rsyslog chrony libpam-tmpdir fail2ban needrestart aptitude apt-listchanges acct sysstat rkhunter chkrootkit debsums apt-show-versions tiger wget gnupg lsb-release apt-transport-https unzip patch pulseaudio pulseaudio-utils pavucontrol alsa-utils lynis macchanger unhide tcpd haveged auditd fonts-liberation extrepo timeshift gnome-terminal gnome-brave-icon-theme breeze-gtk-theme bibata* tcpd macchanger mousepad xfce4 libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xserver-xorg xinit xserver-xorg-legacy xfce4-pulse* xfce4-whisk* lightdm lightdm-gtk-greeter lightdm-gtk-greeter-settings opensnitch* python3-opensnitch*
 
 # PAM/U2F
-pamu2fcfg -u dev > /etc/u2f_mappings
+pamu2fcfg -u dev > /etc/conf
 chmod 600 /etc/u2f_mappings
-chown root:root /etc/u2f_mappings
+chown root:root /etc/conf
 chattr +i /etc/u2f_mappings
 
 cat >/etc/pam.d/chfn <<'EOF'
 #%PAM-1.0
+auth      sufficient  pam_u2f.so authfile=/etc/conf
 auth      sufficient  pam_rootok.so
 auth      include     common-auth
 account   include     common-account
@@ -263,11 +263,13 @@ EOF
 
 cat >/etc/pam.d/chpasswd <<'EOF'
 #%PAM-1.0
+auth      sufficient  pam_u2f.so authfile=/etc/conf
 password  include     common-password
 EOF
 
 cat >/etc/pam.d/chsh <<'EOF'
 #%PAM-1.0
+auth      sufficient  pam_u2f.so authfile=/etc/conf
 auth      required    pam_shells.so
 auth      sufficient  pam_rootok.so
 auth      include     common-auth
@@ -288,33 +290,35 @@ EOF
 
 cat >/etc/pam.d/common-auth <<'EOF'
 #%PAM-1.0
-auth.     required    pam_access.so
-auth      sufficient  pam_u2f.so authfile=/etc/u2f_mappings
+auth      sufficient  pam_u2f.so authfile=/etc/conf
+auth      required    pam_access.so
 auth      requisite   pam_deny.so
 EOF
 
 cat >/etc/pam.d/common-session <<'EOF'
 #%PAM-1.0
 session   required    pam_limits.so
-session	  required    pam_env.so
-session	  optional    pam_systemd.so
+session   required    pam_env.so
+session   optional    pam_systemd.so
 session   optional    pam_umask.so umask=077
+session   optional    pam_tmpdir.so
 session   required    pam_unix.so
 EOF
 
 cat >/etc/pam.d/common-session-noninteractive <<'EOF'
 #%PAM-1.0
 session   required    pam_limits.so
-session	  required    pam_env.so
-session	  optional    pam_systemd.so
+session   required    pam_env.so
+session   optional    pam_systemd.so
 session   optional    pam_umask.so umask=077
+session   optional    pam_tmpdir.so
 session   required    pam_unix.so
 EOF
 
 cat >/etc/pam.d/sudo <<'EOF'
 #%PAM-1.0
-auth      required    pam_u2f.so authfile=/etc/u2f_mapping
-
+auth      sufficient  pam_u2f.so authfile=/etc/conf
+auth      required    pam_access.so
 account   include     common-account
 password  include     common-password
 session   include     common-session
@@ -322,7 +326,8 @@ EOF
 
 cat >/etc/pam.d/sudo-i <<'EOF'
 #%PAM-1.0
-auth      required    pam_u2f.so authfile=/etc/u2f_mappings
+auth      sufficient  pam_u2f.so authfile=/etc/conf
+auth      required    pam_access.so
 account   include     common-account
 password  include     common-password
 session   include     common-session
@@ -330,7 +335,8 @@ EOF
 
 cat >/etc/pam.d/sshd <<'EOF'
 #%PAM-1.0
-auth      required    pam_u2f.so authfile=/etc/u2f_mappings
+auth      sufficient  pam_u2f.so authfile=/etc/conf
+auth      required    pam_access.so
 account   include     common-account
 password  include     common-password
 session   include     common-session
@@ -338,7 +344,8 @@ EOF
 
 cat >/etc/pam.d/su <<'EOF'
 #%PAM-1.0
-auth      required    pam_u2f.so authfile=/etc/u2f_mappings
+auth      sufficient  pam_u2f.so authfile=/etc/conf
+auth      required    pam_access.so
 account   include     common-account
 password  include     common-password
 session   include     common-session
@@ -346,7 +353,8 @@ EOF
 
 cat >/etc/pam.d/su-l <<'EOF'
 #%PAM-1.0
-auth      required    pam_u2f.so authfile=/etc/u2f_mappings
+auth      sufficient  pam_u2f.so authfile=/etc/conf
+auth      required    pam_access.so
 account   include     common-account
 password  include     common-password
 session   include     common-session
@@ -354,6 +362,7 @@ EOF
 
 cat >/etc/pam.d/other <<'EOF'
 #%PAM-1.0
+auth      sufficient  pam_u2f.so authfile=/etc/conf
 auth      required    pam_deny.so
 account   required    pam_deny.so
 password  required    pam_deny.so
@@ -362,9 +371,10 @@ EOF
 
 cat >/etc/pam.d/login <<'EOF'
 #%PAM-1.0
+auth      sufficient  pam_u2f.so authfile=/etc/conf
+auth      required    pam_access.so
 auth      optional    pam_faildelay.so delay=3000000
 auth      requisite   pam_nologin.so
-auth      required    pam_u2f.so authfile=/etc/u2f_mappings
 session   required    pam_limits.so
 account   include     common-account
 session   include     common-session
@@ -373,8 +383,9 @@ EOF
 
 cat >/etc/pam.d/lightdm <<'EOF'
 #%PAM-1.0
+auth      sufficient  pam_u2f.so authfile=/etc/conf
+auth      required    pam_access.so
 auth      requisite   pam_nologin.so
-auth      required    pam_u2f.so authfile=/etc/u2f_mappings
 account   include     common-account
 session   [success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux.so close
 session   include     common-session
@@ -384,6 +395,8 @@ EOF
 
 cat >/etc/pam.d/lightdm-greeter <<'EOF'
 #%PAM-1.0
+auth      sufficient   pam_u2f.so authfile=/etc/conf
+auth      required     pam_access.so
 auth      requisite    pam_nologin
 account   include      common-account
 password  required     pam_unix.so
@@ -393,23 +406,27 @@ EOF
 
 cat >/etc/pam.d/newusers <<'EOF'
 #%PAM-1.0
+auth      sufficient  pam_u2f.so authfile=/etc/conf
 password  include     common-password
 EOF
 
 cat >/etc/pam.d/passwd <<'EOF'
 #%PAM-1.0
+auth      sufficient  pam_u2f.so authfile=/etc/conf
 password  include     common-password
 EOF
 
 cat >/etc/pam.d/runuser <<'EOF'
 #%PAM-1.0
-auth	    sufficient  pam_rootok.so
+auth      sufficient  pam_u2f.so authfile=/etc/conf
+auth	   sufficient  pam_rootok.so
 session	  required    pam_limits.so
 session	  required    pam_unix.so
 EOF
 
 cat >/etc/pam.d/runuser-l <<'EOF'
 #%PAM-1.0
+auth      sufficient  pam_u2f.so authfile=/etc/conf
 auth	    include     runuser
 session	  include     runuser
 EOF
@@ -429,13 +446,13 @@ passwd -l root
 echo "needs_root_rights=no" >> /etc/X11/Xwrapper.config
 dpkg-reconfigure xserver-xorg-legacy
 echo "order hosts" >> /etc/host.conf
-echo "*            -          maxlogins    1
+echo "*            -          maxlogins    2
       root         -          maxlogins    5
       *            hard       nproc        2048
       root         hard       nproc        65536
       *            soft       priority     0
       *            soft       core         0
-      *            hard       core         unlimited" > /etc/security/limits.d/limits.conf
+      *            hard       core         0" > /etc/security/limits.d/limits.conf
 echo "ProcessSizeMax=0
 Storage=none" >> /etc/systemd/coredump.conf
 echo "ulimit -c 0" >> /etc/profile
@@ -443,7 +460,7 @@ echo "UMASK 077" >> /etc/login.defs
 echo "umask 077" >> /etc/profile
 echo "umask 077" >> /etc/bash.bashrc
 echo "ALL: ALL" > /etc/hosts.deny
-echo "-:ALL EXCEPT dev:tty1" > /etc/security/access.conf
+echo "-:ALL EXCEPT dev:tty1" >> /etc/security/access.conf
 echo "-:ALL EXCEPT dev:LOCAL" >> /etc/security/access.conf
 echo "-:dev:ALL EXCEPT LOCAL" >> /etc/security/access.conf
 echo "+:dev:tty1 tty2 tty3" >> /etc/security/access.conf
@@ -451,7 +468,7 @@ echo "-:root:ALL" >> /etc/security/access.conf
 echo "-:ALL:ALL" >> /etc/security/access.conf
 
  # GRUB
-sed -i 's|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT="slab_nomerge slab_debug=FZ init_on_alloc=1 init_on_free=1 randomize_kstack_offset=on vsyscall=none pti=on debugfs=off kfence.sample_interval=100 efi_pstore.pstore_disable=1 amd_iommu=force_isolation intel_iommu=on iommu=force iommu.passthrough=0 efi=disable_early_pci_dma random.trust_bootloader=off random.trust_cpu=off extra_latent_entropy iommu.strict=1 vdso32=0 page_alloc.shuffle=1 mitigations=auto,nosmt nosmt=force spectre_v2=on spectre_bhi=on spec_store_bypass_disable=on ssbd=force-on l1tf=full,force kvm-intel.vmentry_l1d_flush=always mds=full,nosmt tsx=off lockdown=confidentiality tsx_async_abort=full,nosmt kvm.nx_huge_pages=force l1d_flush=on mmio_stale_data=full,nosmt retbleed=auto,nosmt module.sig_enforce=1 kvm.mitigate_smt_rsb=1 gather_data_sampling=force spec_rstack_overflow=safe-ret reg_file_data_sampling=on ipv6.disable=1 loglevel=0 quiet audit=1 apparmor=1 security=apparmor audit=1"|' /etc/default/grub
+sed -i 's|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT="slab_nomerge slab_debug=FZ init_on_alloc=1 init_on_free=1 randomize_kstack_offset=on vsyscall=none pti=on debugfs=off kfence.sample_interval=100 efi_pstore.pstore_disable=1 amd_iommu=force_isolation intel_iommu=on iommu=force iommu.passthrough=0 efi=disable_early_pci_dma random.trust_bootloader=off random.trust_cpu=off extra_latent_entropy iommu.strict=1 vdso32=0 page_alloc.shuffle=1 mitigations=auto,nosmt nosmt=force spectre_v2=on spectre_bhi=on spec_store_bypass_disable=on ssbd=force-on l1tf=full,force kvm-intel.vmentry_l1d_flush=always mds=full,nosmt tsx=off lockdown=confidentiality tsx_async_abort=full,nosmt kvm.nx_huge_pages=force l1d_flush=on mmio_stale_data=full,nosmt retbleed=auto,nosmt module.sig_enforce=1 kvm.mitigate_smt_rsb=1 gather_data_sampling=force spec_rstack_overflow=safe-ret reg_file_data_sampling=on ipv6.disable=1 loglevel=0 quiet audit=1 apparmor=1 security=apparmor"|' /etc/default/grub
 update-grub
 chown root:root /etc/default/grub
 chmod 640 /etc/default/grub 
@@ -730,50 +747,66 @@ net.ipv4.tcp_rfc1337=1
 net.ipv4.tcp_syn_retries=5
 net.ipv4.tcp_syncookies=1
 net.ipv4.conf.all.accept_local=0
+net.ipv4.conf.*.accept_local=0
 net.ipv4.conf.default.accept_local=0
 net.ipv4.conf.all.accept_redirects=0
+net.ipv4.conf.*.accept_redirects=0
 net.ipv4.conf.default.accept_redirects=0
 net.ipv4.conf.all.accept_source_route=0
+net.ipv4.conf.*.accept_source_route=0
 net.ipv4.conf.default.accept_source_route=0
 net.ipv4.conf.all.arp_evict_nocarrier=1
+net.ipv4.conf.*.arp_evict_nocarrier=1
 net.ipv4.conf.default.arp_evict_nocarrier=1
 net.ipv4.conf.all.arp_filter=1
+net.ipv4.conf.*.arp_filter=1
 net.ipv4.conf.default.arp_filter=1
 net.ipv4.conf.all.arp_ignore=2
+net.ipv4.conf.*.arp_ignore=2
 net.ipv4.conf.default.arp_ignore=2
 net.ipv4.conf.all.drop_gratuitous_arp=1
+net.ipv4.conf.*.drop_gratuitous_arp=1
 net.ipv4.conf.default.drop_gratuitous_arp=1
 net.ipv4.conf.all.shared_media=0
+net.ipv4.conf.*.shared_media=0
 net.ipv4.conf.default.shared_media=0
 net.ipv4.conf.all.forwarding=0
+net.ipv4.conf.*.forwarding=0
 net.ipv4.conf.default.forwarding=0
 net.ipv4.conf.all.mc.forwarding=0
+net.ipv4.conf.*.mc.forwarding=0
 net.ipv4.conf.default.mc.forwarding=0
 net.ipv4.conf.all.route_localnet=0
+net.ipv4.conf.*.route_localnet=0
 net.ipv4.conf.default.route_localnet=0
 net.ipv4.conf.all.rp_filter=1
+net.ipv4.conf.*.rp_filter=1
 net.ipv4.conf.default.rp_filter=1
 net.ipv4.conf.all.secure_redirects=0
+net.ipv4.conf.*.secure_redirects=0
 net.ipv4.conf.default.secure_redirects=0
 net.ipv4.conf.all.send_redirects=0
+net.ipv4.conf.*.send_redirects=0
 net.ipv4.conf.default.send_redirects=0
 net.ipv4.conf.all.shared_media=0
+net.ipv4.conf.*.shared_media=0
 net.ipv4.conf.default.shared_media=0
 net.ipv6.conf.all.disable_ipv6=1
+net.ipv4.conf.*.disable_ipv6=1
 net.ipv6.conf.default.disable_ipv6=1
 vm.swappiness=1" > /usr/lib/sysctl.d/sysctl.conf
 sysctl --system
 
 # MOUNTS
 echo "
-udev                                       /dev             devtmpfs    defaults,noatime,noexec,nosuid 0 0
-devpts                                   /dev/pts             devpts    defaults,nosuid,noexec,newinstance,ptmxmode=0666 0 0
-proc                                       /proc              proc      defaults,nosuid,noexec,nodev,hidepid=2 0 0
-tmpfs                                /home/dev/.cache         tmpfs     defaults,nosuid,noexec,nodev,uid=1000,gid=1000,mode=0700 0 0
-tmpfs       				                        /run              tmpfs   	defaults,nodev,nosuid,noexec,mode=0755 0 0
-tmpfs      				                        /dev/shm            tmpfs   	defaults,nodev,nosuid,noexec,mode=1777 0 0
-tmpfs       				                        /tmp              tmpfs   	defaults,nodev,nosuid,noexec,mode=1777 0 0
-tmpfs       				                      /var/tmp   	        tmpfs   	defaults,nodev,nosuid,noexec,mode=1777 0 0
+udev                                       /dev             devtmpfs    noatime,noexec,nosuid 0 0
+devpts                                   /dev/pts             devpts    noatime,nosuid,noexec,newinstance,ptmxmode=0666 0 0
+proc                                       /proc              proc      noatime,nosuid,noexec,nodev,hidepid=2 0 0
+tmpfs                                /home/dev/.cache         tmpfs     noatime,nosuid,noexec,nodev,uid=1000,gid=1000,mode=0700 0 0
+tmpfs       				                        /run              tmpfs   	noatime,nodev,nosuid,noexec,mode=0755 0 0
+tmpfs      				                        /dev/shm            tmpfs   	noatime,nodev,nosuid,noexec,mode=1777 0 0
+tmpfs       				                        /tmp              tmpfs   	noatime,nodev,nosuid,noexec,mode=1777 0 0
+tmpfs       				                      /var/tmp   	        tmpfs   	noatime,nodev,nosuid,noexec,mode=1777 0 0
 " >> /etc/fstab
 
 # PERMISSIONS

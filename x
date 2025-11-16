@@ -390,13 +390,13 @@ EOF
 
 cat >/etc/pam.d/lightdm-greeter <<'EOF'
 #%PAM-1.0
-auth      sufficient   pam_u2f.so authfile=/etc/conf
-auth      required     pam_access.so
-auth      requisite    pam_nologin
-account   include      common-account
-password  required     pam_unix.so
-session   optional     pam_systemd.so
-session   include      common-session
+auth      sufficient  pam_u2f.so authfile=/etc/conf
+auth      required    pam_access.so
+auth      requisite   pam_nologin
+account   include     common-account
+password  required    pam_unix.so
+session   optional    pam_systemd.so
+session   include     common-session
 EOF
 
 cat >/etc/pam.d/newusers <<'EOF'
@@ -414,7 +414,7 @@ EOF
 cat >/etc/pam.d/runuser <<'EOF'
 #%PAM-1.0
 auth      sufficient  pam_u2f.so authfile=/etc/conf
-auth	   sufficient  pam_rootok.so
+auth	    sufficient  pam_rootok.so
 session	  required    pam_limits.so
 session	  required    pam_unix.so
 EOF
@@ -431,8 +431,7 @@ Defaults passwd_tries=2
 Defaults use_pty
 Defaults logfile="/var/log/sudo.log"
 Defaults secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin"
-root   ALL=(ALL) ALL
-%sudo  ALL=(ALL) ALL
+dev  ALL=(ALL) ALL
 EOF
 
 # MISC HARDENING 
@@ -441,19 +440,27 @@ passwd -l root
 echo "needs_root_rights=no" >> /etc/X11/Xwrapper.config
 dpkg-reconfigure xserver-xorg-legacy
 echo "order hosts" >> /etc/host.conf
-echo "*            -          maxlogins    2
-      root         -          maxlogins    5
-      *            hard       nproc        2048
-      root         hard       nproc        65536
-      *            soft       priority     0
-      *            soft       core         0
-      *            hard       core         0" > /etc/security/limits.d/limits.conf
+echo "*              soft    core            0
+      *              hard    core            0
+      *              hard    rss             1000
+      *              hard    memlock         1000
+      *              hard    nproc           100
+      *              -       maxlogins       1
+      *              hard    data            102400
+      *              hard    fsize           2048
+      root           hard    core            100000
+      root           hard    rss             100000
+      root           soft    nproc           2000
+      root           hard    nproc           3000
+      root           hard    fsize           100000
+      root           -       maxlogins       5" > /etc/security/limits.d/limits.conf
 echo "ProcessSizeMax=0
 Storage=none" >> /etc/systemd/coredump.conf
 echo "ulimit -c 0" >> /etc/profile
 echo "UMASK 077" >> /etc/login.defs
 echo "umask 077" >> /etc/profile
 echo "umask 077" >> /etc/bash.bashrc
+echo "ALL: LOCAL, 127.0.0.1" >> /etc/hosts.allow
 echo "ALL: ALL" > /etc/hosts.deny
 echo "-:ALL EXCEPT dev:tty1" >> /etc/security/access.conf
 echo "-:ALL EXCEPT dev:LOCAL" >> /etc/security/access.conf
@@ -711,36 +718,69 @@ EOF
 
 # KERNEL
 rm -r /etc/sysctl.d
-echo "dev.tty.ldisc_autoload=0
+rm -r /usr/lib/sysctl.d
+echo "kernel.modules_disabled=1
+dev.tty.ldisc_autoload=0
 dev.tty.legacy_tiocsti=0
+kernel.io_uring_disabled=2
 fs.protected_fifos=2
 fs.protected_hardlinks=1
 fs.protected_regular=2
-fs.protected_symlinks=1
-fs.suid_dumpable=0
-kernel.core_uses_pid=1
+fs.protected_symlinks=1 
+fs.suid_dumpable=0 
+fs.binfmt_misc.status=0
+kernel.core_pattern=|/bin/false
+kernel.core_uses_pid=1 
+kernel.ctrl-alt-del=0 
 kernel.dmesg_restrict=1
 kernel.kexec_load_disabled=1
 kernel.kptr_restrict=2
+kernel.panic_on_oops=1
+kernel.perf_cpu_time_max_percent=1
+kernel.perf_event_max_sample_rate=1
 kernel.perf_event_paranoid=3
-kernel.core_pattern=|/bin/true
+kernel.pid_max=65536
 kernel.printk=3 3 3 3
 kernel.randomize_va_space=2
+kernel.split_lock_mitigate=0
 kernel.sysrq=0
 kernel.unprivileged_bpf_disabled=1
 kernel.unprivileged_userns_clone=1
 kernel.yama.ptrace_scope=3
 net.core.bpf_jit_harden=2
+net.core.enable_tcp_offloading=1
+net.core.high_order_alloc_disable=0
+net.core.netdev_max_backlog=65535
+net.core.netdev_tstamp_prequeue=1
+net.core.optmem_max=65535
+net.core.rmem_max=6291456
+net.core.somaxconn=65535
+net.core.tstamp_allow_data=1
+net.core.warnings=0
+net.core.wmem_max=6291456
 net.ipv4.icmp_echo_ignore_all=1
 net.ipv4.icmp_echo_ignore_broadcasts=1
 net.ipv4.icmp_ignore_bogus_error_responses=1
 net.ipv4.ip_forward=0
+net.ipv4.ipfrag_secret_interval=0
+net.ipv4.ipfrag_time=0
+net.ipv4.route.flush=1
+net.ipv4.tcp_abc=0
+net.ipv4.tcp_abort_on_overflow=1
+net.ipv4.tcp_adv_win_scale=1
+net.ipv4.tcp_app_win=0
+net.ipv4.tcp_ecn_fallback=0
 net.ipv4.tcp_fin_timeout=15
 net.ipv4.tcp_orphan_retries=2
 net.ipv4.tcp_retries=5
 net.ipv4.tcp_rfc1337=1
 net.ipv4.tcp_syn_retries=5
 net.ipv4.tcp_syncookies=1
+net.ipv4.tcp_thin_linear_timeouts=1
+net.ipv4.tcp_tw_reuse=1
+net.ipv4.tcp_workaround_signed_windows=1
+net.ipv4.udp_early_demux=1
+net.ipv4.udp_wmem_min=8192
 net.ipv4.conf.all.accept_local=0
 net.ipv4.conf.*.accept_local=0
 net.ipv4.conf.default.accept_local=0
@@ -787,22 +827,41 @@ net.ipv4.conf.all.shared_media=0
 net.ipv4.conf.*.shared_media=0
 net.ipv4.conf.default.shared_media=0
 net.ipv6.conf.all.disable_ipv6=1
-net.ipv4.conf.*.disable_ipv6=1
+net.ipv6.conf.*.disable_ipv6=1
 net.ipv6.conf.default.disable_ipv6=1
+vm.unprivileged_userfaultfd=0
+vm.mmap_min_addr=65536
+vm.max_map_count=1048576
 vm.swappiness=1" > /usr/lib/sysctl.d/sysctl.conf
 sysctl --system
 
 # MOUNTS
 echo "
-udev                                       /dev             devtmpfs    noatime,noexec,nosuid 0 0
-devpts                                   /dev/pts             devpts    noatime,nosuid,noexec,newinstance,ptmxmode=0666 0 0
-proc                                       /proc              proc      noatime,nosuid,noexec,nodev,hidepid=2 0 0
-tmpfs                                /home/dev/.cache         tmpfs     noatime,nosuid,noexec,nodev,uid=1000,gid=1000,mode=0700 0 0
-tmpfs       				                        /run              tmpfs   	noatime,nodev,nosuid,noexec,mode=0755 0 0
-tmpfs      				                        /dev/shm            tmpfs   	noatime,nodev,nosuid,noexec,mode=1777 0 0
-tmpfs       				                        /tmp              tmpfs   	noatime,nodev,nosuid,noexec,mode=1777 0 0
-tmpfs       				                      /var/tmp   	        tmpfs   	noatime,nodev,nosuid,noexec,mode=1777 0 0
+/dev/mapper/lvg-home                      /home              ext4       defaults,noatime,nodev,nosuid 0 2
+/dev/mapper/lvg-opt                        /opt              ext4       defaults,noatime,nodev,nosuid 0 2
+/dev/mapper/lvg-run--shm                 /run/shm            ext4       defaults,noatime,nodev,nosuid,noexec 0 2
+/dev/mapper/lvg-tmp                        /tmp              ext4       defaults,noatime,nodev,nosuid,noexec 0 2
+/dev/mapper/lvg-usr                        /usr              ext4       defaults,noatime,nodev,ro 0 2
+/dev/mapper/lvg-var                        /var              ext4       defaults,noatime,nodev,nosuid 0 2
+/dev/mapper/lvg-var--log                 /var/log            ext4       defaults,noatime,nodev,nosuid,noexec 0 2
+/dev/mapper/lvg-var--log--audit       /var/log/audit         ext4       defaults,noatime,nodev,nosuid,noexec 0 2
+/dev/mapper/lvg-var--tmp                 /var/tmp            ext4       defaults,noatime,nodev,nosuid,noexec 0 2
+securityfs                          /sys/kernel/security   securityfs   defaults,noatime,nodev,nosuid,noexec 0 0
+pstore                                /sys/fs/pstore         pstore     defaults,noatime,nodev,nosuid,noexec 0 0
+systemd                            /sys/fs/cgroup/systemd    cgroup     defaults,noatime,nodev,nosuid,noexec 0 0
+cgroup                                /sys/fs/cgroup         tmpfs      defaults,noatime,nodev,nosuid,noexec 0 0
+efivarfs                         /sys/firmware/efi/efivars  efivarfs    defaults,noatime,nodev,nosuid,noexec 0 0
+net_cls                            /sys/fs/cgroup/net_cls    cgroup     defaults,noatime,nodev,nosuid,noexec 0 0
+proc                                       /proc              proc      defaults,noatime,nodev,nosuid,noexec,hidepid=2 0 0
+tmpfs       				                        /run              tmpfs   	defaults,noatime,nodev,nosuid,noexec,mode=0755 0 0
+tmpfs      				                        /dev/shm            tmpfs   	defaults,noatime,nodev,nosuid,noexec,mode=1777 0 0
+tmpfs       				                        /tmp              tmpfs   	defaults,noatime,nodev,nosuid,noexec,mode=1777 0 0
+tmpfs       				                      /var/tmp   	        tmpfs   	defaults,noatime,nodev,nosuid,noexec,mode=1777 0 0
+tmpfs                                 /home/dev/.cache        tmpfs     defaults,noatime,nodev,nosuid,noexec,uid=1000,gid=1000,mode=0700 0 0
+devpts                                    /dev/pts            devpts    defaults,noatime,noexec,nosuid,newinstance,ptmxmode=0666 0 0
+udev                                       /dev             devtmpfs    defaults,noatime,noexec,nosuid 0 0
 " >> /etc/fstab
+
 
 # PERMISSIONS
 cd /etc

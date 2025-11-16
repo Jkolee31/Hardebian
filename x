@@ -77,8 +77,6 @@ ip6tables -Z
 ip6tables -P INPUT DROP
 ip6tables -P FORWARD DROP
 ip6tables -P OUTPUT DROP
-
-# 8. Save rules
 iptables-save   > /etc/iptables/rules.v4
 ip6tables-save  > /etc/iptables/rules.v6
 netfilter-persistent save

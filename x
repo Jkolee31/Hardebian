@@ -907,7 +907,7 @@ apt install -y git rsync curl wget dirmngr apt-transport-https ca-certificates l
 curl -fsSLo /usr/share/keyrings/mullvad-keyring.asc https://repository.mullvad.net/deb/mullvad-keyring.asc
 echo "deb [signed-by=/usr/share/keyrings/mullvad-keyring.asc arch=$( dpkg --print-architecture )] https://repository.mullvad.net/deb/beta beta main" | tee /etc/apt/sources.list.d/mullvad.list
 apt update
-apt install mullvad-vpn
+apt install mullvad-vpn mullvad-browser
 mullvad account login
 mullvad relay set tunnel wireguard --port 51820
 mullvad relay set tunnel wireguard --ip-version ipv4

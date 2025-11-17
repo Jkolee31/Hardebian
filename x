@@ -33,17 +33,14 @@ iptables -P INPUT DROP
 iptables -P FORWARD DROP
 iptables -P OUTPUT ACCEPT
 iptables -A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-iptables -A INPUT ! -i lo -d 127.0.0.0/8 -j DROP
 iptables -A INPUT -i lo -j ACCEPT
 iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
-iptables -A INPUT -p icmp --icmp-type 8 -m conntrack --ctstate NEW -j ACCEPT
 iptables -A INPUT -p udp -m conntrack --ctstate NEW -j UDP
 iptables -A INPUT -p tcp --syn -m conntrack --ctstate NEW -j TCP
-iptables -A INPUT -p udp -j REJECT --reject-with icmp-port-unreachable
-iptables -A INPUT -p tcp -j REJECT --reject-with tcp-reset
-iptables -A INPUT -j REJECT --reject-with icmp-proto-unreachable
+iptables -A INPUT -p udp -j DROP
+iptables -A INPUT -p tcp -j DROP
+iptables -A INPUT -j DROP
 iptables -A UDP -p udp --dport 53 -j ACCEPT
-iptables -A TCP -p tcp --dport 53 -j ACCEPT
 iptables -A TCP -p tcp --dport 443 -j ACCEPT
 iptables -A TCP -p tcp --dport 80 -j ACCEPT
 ip6tables -F
@@ -860,73 +857,57 @@ sed -i 's|^UUID=\([A-Za-z0-9-]\+\)[[:space:]]\+/boot/efi[[:space:]]\+vfat.*|UUID
 
 # PERMISSIONS
 cd /etc
-sudo chown root:root cron.hourly cron.daily cron.weekly cron.monthly cron.d group group- passwd passwd- security iptables default sudoers fstab hosts.allow hosts.deny hosts host.conf
-sudo chmod 0644 /etc/passwd
-sudo chmod 0644 /etc/group
-sudo chmod 0640 /etc/shadow
-sudo chmod 0640 /etc/gshadow
-sudo chmod 0600 /etc/passwd-
-sudo chmod 0600 /etc/group-
-sudo chmod 0600 /etc/shadow-
-sudo chmod 0640 /etc/gshadow-
-sudo chmod 0640 /etc/sysctl.conf
-sudo chmod 0640 /etc/logrotate.conf
-sudo chmod 0640 /etc/fstab
-sudo chmod 0440 /etc/sudoers 
-sudo chmod 0600 /root/.bashrc
-sudo chmod 0600 /root/.profile
-sudo chmod 0600 /etc/security
-sudo chmod 0600 /etc/crontab
-sudo chown dev /home/dev
-sudo chmod 0700 /home/dev
-sudo chmod 0700 /root 
-sudo chmod 0700 /boot  
-sudo chown root:root /boot/grub/grub.cfg
-sudo chmod 0400 /boot/grub/grub.cfg
-sudo chmod 0400 /etc/iptables
-sudo chown root:root /var/run/dbus
-sudo chmod 0750 /var/run/dbus
-sudo chown root:root /run/sshd
-sudo chmod 0750 /run/sshd
-sudo chown root:root /run/systemd
-sudo chmod 0750 /run/systemd
-sudo chmod 0644 /etc/hosts.allow
-sudo chmod 0644 /etc/hosts.deny
-sudo chown root:root /etc/security/opasswd
-sudo chmod 0600 /etc/security/opasswd
-sudo chown root:adm -R /var/log/
-sudo chmod -R 640 /var/log/
-sudo chmod 0600 /var/log/faillog
-sudo chown root:root /etc/ssh/sshd_config
-sudo chmod 0400 /etc/ssh/sshd_config
-sudo chown root:root /etc/ssh/ssh_config
-sudo chmod 0400 /etc/ssh/ssh_config
-sudo chmod -f 0700 /etc/cron.monthly/*
-sudo chmod -f 0700 /etc/cron.weekly/*
-sudo chmod -f 0700 /etc/cron.daily/*
-sudo chmod -f 0700 /etc/cron.hourly/*
-sudo chmod -f 0700 /etc/cron.d/*
-sudo chmod -f 0400 /etc/cron.allow
-sudo chmod -f 0400 /etc/cron.deny
-sudo chmod -f 0400 /etc/crontab
-sudo chmod -f 0400 /etc/at.allow
-sudo chmod -f 0400 /etc/at.deny
-sudo chmod -f 0700 /etc/cron.daily
-sudo chmod -f 0700 /etc/cron.weekly
-sudo chmod -f 0700 /etc/cron.monthly
-sudo chmod -f 0700 /etc/cron.hourly
-sudo chmod -f 0700 /var/spool/cron
-sudo chmod -f 0600 /var/spool/cron/*
-sudo chmod -f 0700 /var/spool/at
-sudo chmod -f 0600 /var/spool/at/*
+chown root:root cron.hourly cron.daily cron.weekly cron.monthly cron.d group group- passwd passwd- security iptables default sudoers fstab hosts.allow hosts.deny hosts host.conf
+chmod 0644 /etc/passwd
+chmod 0644 /etc/group
+chmod 0640 /etc/shadow
+chmod 0640 /etc/gshadow
+chmod 0600 /etc/passwd-
+chmod 0600 /etc/group-
+chmod 0600 /etc/shadow-
+chmod 0640 /etc/gshadow-
+chmod 0640 /etc/fstab
+chmod 0440 /etc/sudoers 
+chmod 0600 /root/.bashrc
+chmod 0600 /root/.profile
+chmod 0600 /etc/security
+chmod 0600 /etc/crontab
+chown dev /home/dev
+chmod 0700 /home/dev
+chmod 0700 /root 
+chmod 0700 /boot  
+chown root:root /boot/grub/grub.cfg
+chmod 0400 /boot/grub/grub.cfg
+chmod -R 0400 /etc/iptables
+chown root:root /var/run/dbus
+chmod 0750 /var/run/dbus
+chown root:root /run/systemd
+chmod 0750 /run/systemd
+chmod 0644 /etc/hosts.allow
+chmod 0644 /etc/hosts.deny
+chown root:root /etc/security/opasswd
+chmod 0600 /etc/security/opasswd
+chown root:adm -R /var/log
+chmod -R 0640 /var/log
+chmod 0400 /etc/crontab
+chmod -R 0700 /etc/cron.hourly
+chmod -R 0700 /etc/cron.daily
+chmod -R 0700 /etc/cron.weekly
+chmod -R 0700 /etc/cron.monthly
+chmod -R 0700 /etc/cron.d
+chmod -R 0400 /etc/cron.allow
+chmod -R 0400 /etc/cron.deny
+chmod -R 0400 /etc/at.allow
+chmod -R 0700 /var/spool/cron
+chmod -R 0700 /var/spool/at
 cd
 
 # MULLVAD VPN
-apt install -y git curl wget apt-transport-https ca-certificates gnupg apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra
-sudo curl -fsSLo /usr/share/keyrings/mullvad-keyring.asc https://repository.mullvad.net/deb/mullvad-keyring.asc
-echo "deb [signed-by=/usr/share/keyrings/mullvad-keyring.asc arch=$( dpkg --print-architecture )] https://repository.mullvad.net/deb/beta beta main" | sudo tee /etc/apt/sources.list.d/mullvad.list
-sudo apt update
-sudo apt install mullvad-vpn
+apt install -y git rsync curl wget dirmngr apt-transport-https ca-certificates lsb-release gnupg gpg
+curl -fsSLo /usr/share/keyrings/mullvad-keyring.asc https://repository.mullvad.net/deb/mullvad-keyring.asc
+echo "deb [signed-by=/usr/share/keyrings/mullvad-keyring.asc arch=$( dpkg --print-architecture )] https://repository.mullvad.net/deb/beta beta main" | tee /etc/apt/sources.list.d/mullvad.list
+apt update
+apt install mullvad-vpn
 mullvad account login
 mullvad relay set tunnel wireguard --port 51820
 mullvad relay set tunnel wireguard --ip-version ipv4
@@ -951,8 +932,6 @@ iptables -P FORWARD DROP
 iptables -P OUTPUT DROP
 iptables -A INPUT  -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-iptables -A INPUT ! -i lo -d 127.0.0.0/8 -j DROP
-iptables -A OUTPUT ! -o lo -d 127.0.0.0/8 -j DROP
 iptables -A INPUT  -i lo -j ACCEPT
 iptables -A OUTPUT -o lo -j ACCEPT
 iptables -A INPUT  -m conntrack --ctstate INVALID -j DROP

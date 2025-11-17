@@ -4,7 +4,7 @@ set -euo pipefail
 
 apt update
 
-# PRE CONFIG/AUDIT
+# PRE CONFIG
 echo 'APT::Get::AllowUnauthenticated "false";' >> /etc/apt/apt.conf.d/98-hardening
 echo 'APT::Install-Suggests "false";' >> /etc/apt/apt.conf.d/98-hardening 
 echo 'APT::Install-Recommends "false";' >> /etc/apt/apt.conf.d/98-hardening
@@ -13,6 +13,43 @@ echo 'DPkg
       Pre-Invoke  { "mount -o remount,rw /usr" };
       Pre-Invoke  { "mount -o remount,rw /boot" };
   };' >> /etc/apt/apt.conf.d/99-remount 
+
+# FIREWALL
+apt install iptables iptables-persistent netfilter-persistent
+systemctl enable netfilter-persistent
+service netfilter-persistent start
+iptables -F
+iptables -X
+iptables -Z
+iptables -t nat -F
+iptables -t nat -X
+iptables -t nat -Z
+iptables -t mangle -F
+iptables -t mangle -X
+iptables -t mangle -Z
+iptables -P INPUT DROP
+iptables -P FORWARD DROP
+iptables -P OUTPUT ACCEPT
+iptables -A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+iptables -A INPUT -i lo -j ACCEPT
+iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
+iptables -A INPUT -p udp -m conntrack --ctstate NEW -j UDP
+iptables -A INPUT -p tcp --tcp-flags FIN,SYN,RST,ACK SYN -m conntrack --ctstate NEW -j TCP
+iptables -A INPUT -p udp -j DROP
+iptables -A INPUT -p tcp -j DROP
+iptables -A INPUT -j DROP
+iptables -A UDP -p udp --dport 53 -j ACCEPT
+iptables -A UDP -p tcp --dport 443 -j ACCEPT
+iptables -A UDP -p tcp --dport 80 -j ACCEPT
+ip6tables -F
+ip6tables -X
+ip6tables -Z
+ip6tables -P INPUT DROP
+ip6tables -P FORWARD DROP
+ip6tables -P OUTPUT DROP
+iptables-save   > /etc/iptables/rules.v4
+ip6tables-save  > /etc/iptables/rules.v6
+netfilter-persistent save
 
 apt install -y git curl wget apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra
 git clone https://github.com/ovh/debian-cis.git && cd debian-cis
@@ -38,48 +75,6 @@ systemctl disable debug-shell.service unattended-upgrades wpa_supplicant speech-
 systemctl mask debug-shell.service unattended-upgrades wpa_supplicant speech-dispatcher bluez bluetooth.service apport.service avahi-daemon.socket avahi-daemon.service cups-browsed cups.socket cups.path cups.service nvmf-autoconnect.service nvmefc-boot-connections.service pcscd.socket ModemManager.service systemd-pstore.service persist-autosave.service usbmuxd.service usb_modeswitch@.service usb-gadget.target mountnfs.service mountnfs-bootclean.service udisks2.service kexec.target systemd-kexec.service fprintd.service systemd-binfmt.service ctrl-alt-del.target rpcbind.target proc-sys-fs-binfmt_misc.mount proc-sys-fs-binfmt_misc.automount printer.target
 
 apt purge -y  zram* pci* pmount* acpi* anacron* avahi* bc bind9* dns* fastfetch fonts-noto* fprint* isc-dhcp* lxc* docker* podman* xen* bochs* uml* vagrant* libssh* ssh* openssh* acpi* samba* winbind* qemu* libvirt* virt* cron* avahi* cup* print* rsync* virtual* sane* rpc* bind* nfs* blue* pp* spee* espeak* mobile* wireless* bc perl dictionaries-common doc-debian emacs* ethtool iamerican ibritish ienglish-common inet* ispell task-english util-linux-locales wamerican tasksel* vim* os-prober* netcat* libssh*
-
-
-# FIREWALL (MULLVAD REQUIRED)
-apt install iptables iptables-persistent netfilter-persistent
-systemctl enable netfilter-persistent
-service netfilter-persistent start
-iptables -F
-iptables -X
-iptables -Z
-iptables -t nat -F
-iptables -t nat -X
-iptables -t nat -Z
-iptables -t mangle -F
-iptables -t mangle -X
-iptables -t mangle -Z
-iptables -P INPUT DROP
-iptables -P FORWARD DROP
-iptables -P OUTPUT DROP
-iptables -A INPUT  -i lo -j ACCEPT
-iptables -A OUTPUT -o lo -j ACCEPT
-iptables -A INPUT  -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-iptables -A INPUT  -m conntrack --ctstate INVALID -j DROP
-iptables -A OUTPUT -m conntrack --ctstate INVALID -j DROP
-iptables -A OUTPUT ! -o wg0-mullvad -p udp --dport 51820 -m conntrack --ctstate NEW -j ACCEPT
-iptables -A INPUT  -i wg0-mullvad -j ACCEPT
-iptables -A OUTPUT -o wg0-mullvad -j ACCEPT
-iptables -A OUTPUT -o wg0-mullvad -p udp --dport 53  -j ACCEPT
-iptables -A OUTPUT -o wg0-mullvad -p udp --dport 123 -j ACCEPT
-iptables -A OUTPUT -o wg0-mullvad -p tcp --dport 443 -j ACCEPT
-iptables -A OUTPUT -o wg0-mullvad -p tcp --dport 80  -j ACCEPT
-iptables -A INPUT  ! -i wg0-mullvad -m conntrack --ctstate NEW -j DROP
-iptables -A OUTPUT ! -o wg0-mullvad -m conntrack --ctstate NEW -j DROP
-ip6tables -F
-ip6tables -X
-ip6tables -Z
-ip6tables -P INPUT DROP
-ip6tables -P FORWARD DROP
-ip6tables -P OUTPUT DROP
-iptables-save   > /etc/iptables/rules.v4
-ip6tables-save  > /etc/iptables/rules.v6
-netfilter-persistent save
 
 
 install -d /etc/apt/preferences.d
@@ -442,17 +437,12 @@ dpkg-reconfigure xserver-xorg-legacy
 echo "order hosts" >> /etc/host.conf
 echo "*              soft    core            0
       *              hard    core            0
-      *              hard    rss             1000
-      *              hard    memlock         1000
       *              hard    nproc           100
-      *              -       maxlogins       1
-      *              hard    data            102400
-      *              hard    fsize           2048
+      *              -       maxlogins       2
       root           hard    core            100000
       root           hard    rss             100000
       root           soft    nproc           2000
       root           hard    nproc           3000
-      root           hard    fsize           100000
       root           -       maxlogins       5" > /etc/security/limits.d/limits.conf
 echo "ProcessSizeMax=0
 Storage=none" >> /etc/systemd/coredump.conf
@@ -861,7 +851,7 @@ tmpfs                                 /home/dev/.cache        tmpfs     defaults
 devpts                                    /dev/pts            devpts    defaults,noatime,noexec,nosuid,newinstance,ptmxmode=0666 0 0
 udev                                       /dev             devtmpfs    defaults,noatime,noexec,nosuid 0 0
 " >> /etc/fstab
-
+sed -i 's|^UUID=\([A-Za-z0-9-]\+\)[[:space:]]\+/boot/efi[[:space:]]\+vfat.*|UUID=\1                           /boot/efi            vfat      noatime,nodev,nosuid,noexec,umask=0077 0 1|' /etc/fstab  
 
 # PERMISSIONS
 cd /etc
@@ -925,6 +915,61 @@ sudo chmod -f 0600 /var/spool/cron/*
 sudo chmod -f 0700 /var/spool/at
 sudo chmod -f 0600 /var/spool/at/*
 cd
+
+# MULLVAD VPN
+sudo curl -fsSLo /usr/share/keyrings/mullvad-keyring.asc https://repository.mullvad.net/deb/mullvad-keyring.asc
+echo "deb [signed-by=/usr/share/keyrings/mullvad-keyring.asc arch=$( dpkg --print-architecture )] https://repository.mullvad.net/deb/beta beta main" | sudo tee /etc/apt/sources.list.d/mullvad.list
+sudo apt update
+sudo apt install mullvad-vpn
+mullvad account login
+mullvad relay set tunnel wireguard --port 51820
+mullvad relay set tunnel wireguard --ip-version ipv4
+mullvad relay set tunnel-protocol wireguard
+mullvad relay set location us nyc
+mullvad tunnel set wireguard --daita on
+mullvad obfuscation set mode off
+mullvad auto-connect set on
+mullvad connect
+
+iptables -F
+iptables -X
+iptables -Z
+iptables -t nat -F
+iptables -t nat -X
+iptables -t nat -Z
+iptables -t mangle -F
+iptables -t mangle -X
+iptables -t mangle -Z
+iptables -P INPUT DROP
+iptables -P FORWARD DROP
+iptables -P OUTPUT DROP
+iptables -A INPUT  -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+iptables -A INPUT  -m conntrack --ctstate INVALID -j DROP
+iptables -A OUTPUT -m conntrack --ctstate INVALID -j DROP
+iptables -A INPUT  -i lo -j ACCEPT
+iptables -A OUTPUT -o lo -j ACCEPT
+iptables -A INPUT ! -i lo -d 127.0.0.0/8 -j DROP
+iptables -A OUTPUT ! -o lo -d 127.0.0.0/8 -j DROP
+iptables -A OUTPUT ! -o wg0-mullvad -p udp --dport 51820 -m conntrack --ctstate NEW -j ACCEPT
+iptables -A INPUT  -i wg0-mullvad -j ACCEPT
+iptables -A OUTPUT -o wg0-mullvad -j ACCEPT
+iptables -A OUTPUT -o wg0-mullvad -p udp --dport 53  -j ACCEPT
+iptables -A OUTPUT -o wg0-mullvad -p udp --dport 123 -j ACCEPT
+iptables -A OUTPUT -o wg0-mullvad -p tcp --dport 443 -j ACCEPT
+iptables -A OUTPUT -o wg0-mullvad -p tcp --dport 80  -j ACCEPT
+iptables -A INPUT  ! -i wg0-mullvad -m conntrack --ctstate NEW -j DROP
+iptables -A OUTPUT ! -o wg0-mullvad -m conntrack --ctstate NEW -j DROP
+ip6tables -F
+ip6tables -X
+ip6tables -Z
+ip6tables -P INPUT DROP
+ip6tables -P FORWARD DROP
+ip6tables -P OUTPUT DROP
+iptables-save   > /etc/iptables/rules.v4
+ip6tables-save  > /etc/iptables/rules.v6
+netfilter-persistent save
+
 
 # LOCKDOWN
 find / -perm -4000 -o -perm -2000 -exec chmod a-s {} \; 2>/dev/null

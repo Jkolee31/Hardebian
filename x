@@ -27,20 +27,25 @@ iptables -t nat -Z
 iptables -t mangle -F
 iptables -t mangle -X
 iptables -t mangle -Z
+iptables -N UDP
+iptables -N TCP
 iptables -P INPUT DROP
 iptables -P FORWARD DROP
 iptables -P OUTPUT ACCEPT
 iptables -A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+iptables -A INPUT ! -i lo -d 127.0.0.0/8 -j DROP
 iptables -A INPUT -i lo -j ACCEPT
 iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
+iptables -A INPUT -p icmp --icmp-type 8 -m conntrack --ctstate NEW -j ACCEPT
 iptables -A INPUT -p udp -m conntrack --ctstate NEW -j UDP
-iptables -A INPUT -p tcp --tcp-flags FIN,SYN,RST,ACK SYN -m conntrack --ctstate NEW -j TCP
-iptables -A INPUT -p udp -j DROP
-iptables -A INPUT -p tcp -j DROP
-iptables -A INPUT -j DROP
+iptables -A INPUT -p tcp --syn -m conntrack --ctstate NEW -j TCP
+iptables -A INPUT -p udp -j REJECT --reject-with icmp-port-unreachable
+iptables -A INPUT -p tcp -j REJECT --reject-with tcp-reset
+iptables -A INPUT -j REJECT --reject-with icmp-proto-unreachable
 iptables -A UDP -p udp --dport 53 -j ACCEPT
-iptables -A UDP -p tcp --dport 443 -j ACCEPT
-iptables -A UDP -p tcp --dport 80 -j ACCEPT
+iptables -A TCP -p tcp --dport 53 -j ACCEPT
+iptables -A TCP -p tcp --dport 443 -j ACCEPT
+iptables -A TCP -p tcp --dport 80 -j ACCEPT
 ip6tables -F
 ip6tables -X
 ip6tables -Z
@@ -917,6 +922,7 @@ sudo chmod -f 0600 /var/spool/at/*
 cd
 
 # MULLVAD VPN
+apt install -y git curl wget apt-transport-https ca-certificates gnupg apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra
 sudo curl -fsSLo /usr/share/keyrings/mullvad-keyring.asc https://repository.mullvad.net/deb/mullvad-keyring.asc
 echo "deb [signed-by=/usr/share/keyrings/mullvad-keyring.asc arch=$( dpkg --print-architecture )] https://repository.mullvad.net/deb/beta beta main" | sudo tee /etc/apt/sources.list.d/mullvad.list
 sudo apt update
@@ -945,12 +951,12 @@ iptables -P FORWARD DROP
 iptables -P OUTPUT DROP
 iptables -A INPUT  -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-iptables -A INPUT  -m conntrack --ctstate INVALID -j DROP
-iptables -A OUTPUT -m conntrack --ctstate INVALID -j DROP
-iptables -A INPUT  -i lo -j ACCEPT
-iptables -A OUTPUT -o lo -j ACCEPT
 iptables -A INPUT ! -i lo -d 127.0.0.0/8 -j DROP
 iptables -A OUTPUT ! -o lo -d 127.0.0.0/8 -j DROP
+iptables -A INPUT  -i lo -j ACCEPT
+iptables -A OUTPUT -o lo -j ACCEPT
+iptables -A INPUT  -m conntrack --ctstate INVALID -j DROP
+iptables -A OUTPUT -m conntrack --ctstate INVALID -j DROP
 iptables -A OUTPUT ! -o wg0-mullvad -p udp --dport 51820 -m conntrack --ctstate NEW -j ACCEPT
 iptables -A INPUT  -i wg0-mullvad -j ACCEPT
 iptables -A OUTPUT -o wg0-mullvad -j ACCEPT

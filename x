@@ -927,6 +927,8 @@ iptables -t nat -Z
 iptables -t mangle -F
 iptables -t mangle -X
 iptables -t mangle -Z
+iptables -N TCP
+iptables -N UDP
 iptables -P INPUT DROP
 iptables -P FORWARD DROP
 iptables -P OUTPUT DROP
@@ -944,10 +946,6 @@ iptables -A OUTPUT ! -o wg0-mullvad -p udp --dport 51820 -m conntrack --ctstate 
 -A TCP -p tcp -p tcp --dport 443 -j ACCEPT
 -A TCP -p tcp -p tcp --dport 80 -j ACCEPT
 -A UDP -p udp -m udp --dport 53 -j ACCEPT
-
-
-
-
 ip6tables -F
 ip6tables -X
 ip6tables -Z
@@ -958,23 +956,11 @@ iptables-save   > /etc/iptables/rules.v4
 ip6tables-save  > /etc/iptables/rules.v6
 netfilter-persistent save
 
--P INPUT DROP
--P FORWARD DROP
--P OUTPUT DROP
--N TCP
--N UDP
--A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
--A INPUT -i lo -j ACCEPT
--A INPUT -i wgo-mullvad -j ACCEPT
--A INPUT -m conntrack --ctstate INVALID -j DROP
+
 
 -A INPUT -p udp -j DROP
 -A INPUT -p tcp -j DROP
 -A INPUT -j DROP
--A TCP -p tcp -p tcp --dport 443 -j ACCEPT
--A UDP -p udp -m udp --dport 53 -j ACCEPT
-dev@lo:~%_
-
 
 # LOCKDOWN
 find / -perm -4000 -o -perm -2000 -exec chmod a-s {} \; 2>/dev/null

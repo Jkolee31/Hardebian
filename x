@@ -5,10 +5,13 @@ set -euo pipefail
 apt update
 
 # PRE CONFIG
+apt update
 echo 'Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";' >> /etc/apt/apt.conf.d/50unattended-upgrades
-echo 'APT::Get::AllowUnauthenticated "false";' >> /etc/apt/apt.conf.d/98-hardening
-echo 'Acquire::http::AllowRedirect "false";' >> /etc/apt/apt.conf.d/98-hardening
-echo 'APT::Install-Recommends "false";' >> /etc/apt/apt.conf.d/98-hardening 
+cat >/etc/apt/apt.conf.d/98-hardening <<'EOF'
+APT::Get::AllowUnauthenticated "false";
+Acquire::http::AllowRedirect "false";
+APT::Install-Recommends "false";
+EOF
 apt update
 
 # FIREWALL
@@ -34,12 +37,12 @@ iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
 iptables -A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
 iptables -A INPUT -p udp -m conntrack --ctstate NEW -j UDP
 iptables -A INPUT -p tcp --syn -m conntrack --ctstate NEW -j TCP
-iptables -A INPUT -p udp -j DROP
-iptables -A INPUT -p tcp -j DROP
-iptables -A INPUT -j DROP
 iptables -A UDP -p udp --dport 53 -j ACCEPT
 iptables -A TCP -p tcp --dport 443 -j ACCEPT
 iptables -A TCP -p tcp --dport 80 -j ACCEPT
+iptables -A INPUT -p udp -j DROP
+iptables -A INPUT -p tcp -j DROP
+iptables -A INPUT -j DROP
 ip6tables -F
 ip6tables -X
 ip6tables -Z
@@ -50,176 +53,52 @@ iptables-save   > /etc/iptables/rules.v4
 ip6tables-save  > /etc/iptables/rules.v6
 netfilter-persistent save
 
-systemctl disable --now debug-shell.service wpa_supplicant speech-dispatcher bluez bluetooth.service apport.service avahi-daemon.socket avahi-daemon.service cups-browsed cups.socket cups.path cups.service nvmf-autoconnect.service nvmefc-boot-connections.service ModemManager.service usbmuxd.service usb_modeswitch@.service usb-gadget.target mountnfs.service mountnfs-bootclean.service udisks2.service kexec.target systemd-kexec.service fprintd.service systemd-binfmt.service ctrl-alt-del.target rpcbind.target proc-sys-fs-binfmt_misc.mount proc-sys-fs-binfmt_misc.automount printer.target
 
-systemctl mask debug-shell.service wpa_supplicant speech-dispatcher bluez bluetooth.service apport.service avahi-daemon.socket avahi-daemon.service cups-browsed cups.socket cups.path cups.service nvmf-autoconnect.service nvmefc-boot-connections.service ModemManager.service usbmuxd.service usb_modeswitch@.service usb-gadget.target mountnfs.service mountnfs-bootclean.service udisks2.service kexec.target systemd-kexec.service fprintd.service systemd-binfmt.service ctrl-alt-del.target rpcbind.target proc-sys-fs-binfmt_misc.mount proc-sys-fs-binfmt_misc.automount printer.target
+# DISABLE & MASK UNNECESSARY SERVICES
+systemctl disable --now \
+  debug-shell.service wpa_supplicant speech-dispatcher bluez bluetooth.service \
+  apport.service avahi-daemon.socket avahi-daemon.service \
+  cups-browsed cups.socket cups.path cups.service \
+  ModemManager.service fprintd.service rpcbind.target printer.target
 
-apt purge -y  zram* pci* pmount* acpi* anacron* avahi* bc bind9* dns* fastfetch fonts-noto* fprint* isc-dhcp* lxc* docker* podman* xen* bochs* uml* vagrant* libssh* ssh* openssh* acpi* samba* winbind* qemu* libvirt* virt* cron* avahi* cup* print* rsync* virtual* sane* rpc* bind* nfs* blue* pp* spee* espeak* mobile* wireless* bc perl ethtool inet* util-linux-locales tasksel* vim* os-prober* netcat* libssh* Modem*
+systemctl mask \
+  debug-shell.service wpa_supplicant speech-dispatcher bluez bluetooth.service \
+  apport.service avahi-daemon.socket avahi-daemon.service \
+  cups-browsed cups.socket cups.path cups.service \
+  ModemManager.service fprintd.service rpcbind.target printer.target
+
+# PACKAGE REMOVAL
+apt purge -y zram* pci* pmount* acpi* anacron* avahi* bc bind9* dns* \
+  isc-dhcp* lxc* docker* podman* xen* bochs* uml* vagrant* ssh* openssh* \
+  samba* winbind* qemu* libvirt* virt* nfs* blue* espeak* wireless* \
+  os-prober* netcat* Modem* || true
 
 
 install -d /etc/apt/preferences.d
 cat >/etc/apt/preferences.d/deny-ssh.pref <<'EOF'
-Package: openssh*
+Package: openssh* dropbear* ssh* tinyssh* qemu* libvirt* uml* virt* \
+courier* dma* tripwire* avahi* samba* pmount* sane* netcat* os-prober* \
+make* blue* rpc* nfs* cup* anacron* exim* print* vagrant* lxc* docker* \
+podman* xen* bochs* gnustep* sendmail* mobile* wireless* inet*
 Pin: release *
 Pin-Priority: -1
-
-Package: dropbear*
-Pin: release *
-Pin-Priority: -1
-
-Package: ssh*
-Pin: release *
-Pin-Priority: -1
-
-Package: tinyssh*
-Pin: release *
-Pin-Priority: -1
-
-Package: qemu*       
-Pin: release *
-Pin-Priority: -1
-
-Package: libvirt*
-Pin: release *
-Pin-Priority: -1
-
-Package: uml*
-Pin: release *
-Pin-Priority: -1
-
-Package: virt*
-Pin: release *
-Pin-Priority: -1
-
-Package: courier*
-Pin: release *
-Pin-Priority: -1
-
-Package: dma*
-Pin: release *
-Pin-Priority: -1
-
-Package: tripwire*
-Pin: release *
-Pin-Priority: -1
-
-Package: avahi*
-Pin: release *
-Pin-Priority: -1
-
-Package: samba*
-Pin: release *
-Pin-Priority: -1
-
-Package: pmount*
-Pin: release *
-Pin-Priority: -1
-
-Package: sane*
-Pin: release *
-Pin-Priority: -1
-
-Package: netcat*
-Pin: release *
-Pin-Priority: -1
-
-Package: os-prober*
-Pin: release *
-Pin-Priority: -1
-
-Package: make*
-Pin: release *
-Pin-Priority: -1
-
-Package: pp*
-Pin: release *
-Pin-Priority: -1
-
-Package: blue*
-Pin: release *
-Pin-Priority: -1
-
-Package: rpc*
-Pin: release *
-Pin-Priority: -1
-
-Package: nfs*
-Pin: release *
-Pin-Priority: -1
-
-Package: cup*
-Pin: release *
-Pin-Priority: -1
-
-Package: anacron*
-Pin: release *
-Pin-Priority: -1
-
-Package: exim*
-Pin: release *
-Pin-Priority: -1
-
-Package: print*
-Pin: release *
-Pin-Priority: -1
-
-Package: vagrant*
-Pin: release *
-Pin-Priority: -1
-
-Package: lxc*
-Pin: release *
-Pin-Priority: -1
-
-Package: docker*
-Pin: release *
-Pin-Priority: -1
-
-Package: podman*
-Pin: release *
-Pin-Priority: -1
-
-Package: xen*
-Pin: release *
-Pin-Priority: -1
-
-Package: bochs*
-Pin: release *
-Pin-Priority: -1
-
-Package: gnustep*
-Pin: release *
-Pin-Priority: -1
-
-Package: sendmail*
-Pin: release *
-Pin-Priority: -1
-
-Package: mobile*
-Pin: release *
-Pin-Priority: -1
-
-Package: wireless*
-Pin: release *
-Pin-Priority: -1
-
-Package: inet*
-Pin: release *
-Pin-Priority: -1
-
 EOF
 
 # INSTALL PACKAGES
-apt update 
-apt install -y pamu2fcfg libpam-u2f rsyslog chrony libpam-tmpdir fail2ban needrestart apt-listchanges acct sysstat rkhunter chkrootkit debsums apt-show-versions unzip patch alsa-utils pipewire pipewire-audio-client-libraries pipewire-pulse wireplumber lynis macchanger unhide tcpd fonts-liberation extrepo gnome-brave-icon-theme breeze-gtk-theme bibata* mousepad xfce4 libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xserver-xorg xinit xserver-xorg-legacy xfce4-pulse* xfce4-whisk* opensnitch* python3-opensnitch*
+apt update
+apt install -y pamu2fcfg libpam-u2f rsyslog chrony fail2ban needrestart apt-listchanges \
+acct sysstat rkhunter chkrootkit debsums apt-show-versions unzip patch lynis macchanger \
+unhide tcpd fonts-liberation extrepo alsa-utils pipewire pipewire-audio-client-libraries \
+pipewire-pulse wireplumber gnome-brave-icon-theme breeze-gtk-theme bibata* mousepad xfce4 \
+xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xfce4-pulse* \
+xfce4-whisk* opensnitch* python3-opensnitch* git apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra
 
 # PAM/U2F
-mkdir /home/dev/.config
-pamu2fcfg -u dev  > /home/dev/.config/default
+mkdir -p /home/dev/.config
+pamu2fcfg -u dev > /home/dev/.config/default
 chmod 600 /home/dev/.config/default
 install -o root -g root -m 600 /home/dev/.config/default /etc/conf
-chattr +i /home/dev/.config/default
-chattr +i /etc/conf
+chattr +i /home/dev/.config/default /etc/conf
 
 cat >/etc/pam.d/chfn <<'EOF'
 #%PAM-1.0
@@ -384,16 +263,16 @@ EOF
 cat >/etc/pam.d/runuser <<'EOF'
 #%PAM-1.0
 auth      sufficient  pam_u2f.so authfile=/etc/conf
-auth	  sufficient  pam_rootok.so
-session	  required    pam_limits.so
-session	  required    pam_unix.so
+auth	    sufficient  pam_rootok.so
+session   required    pam_limits.so
+session   required    pam_unix.so
 EOF
 
 cat >/etc/pam.d/runuser-l <<'EOF'
 #%PAM-1.0
 auth      sufficient  pam_u2f.so authfile=/etc/conf
-auth	  include     runuser
-session	  include     runuser
+auth	    include     runuser
+session   include     runuser
 EOF
 
 # OVH HARDENING SCRIPT
@@ -421,10 +300,11 @@ cat >/etc/sudoers <<'EOF'
 Defaults passwd_tries=2
 Defaults use_pty
 Defaults logfile="/var/log/sudo.log"
-Defaults secure_path="/sbin:/bin"
-root   ALL=(ALL) ALL
-%sudo  ALL=(ALL) ALL
+Defaults secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+root ALL=(ALL) ALL
+%sudo ALL=(ALL) ALL
 EOF
+chmod 0440 /etc/sudoers
 
 
 # MISC HARDENING 
@@ -432,21 +312,22 @@ echo "/bin/bash" > /etc/shells
 passwd -l root
 echo "needs_root_rights=no" >> /etc/X11/Xwrapper.config
 dpkg-reconfigure xserver-xorg-legacy
-echo "order hosts,bind
-      multi on
-      nospoof on" >> /etc/host.conf 
 
-echo "*       hard    core            0
-      *       hard    rss             50000
-      *       hard    nproc           150
-      *       hard    nofile          1024
-      *       soft    nofile          512
-      *       -       maxlogins       2
-      root    hard    core            100000
-      root    hard    rss             100000
-      root    soft    nproc           2000
-      root    hard    nproc           3000
-      root    -       maxlogins       5" > /etc/security/limits.d/limits.conf
+cat >/etc/host.conf <<'EOF'
+order hosts,bind
+multi on
+nospoof on
+EOF
+
+cat >/etc/security/limits.d/limits.conf <<'EOF'
+* hard core 0
+* hard nproc 150
+* hard nofile 1024
+* soft nofile 512
+* - maxlogins 2
+root hard nproc 3000
+root - maxlogins 5
+EOF
 
 echo "ProcessSizeMax=0
 Storage=none" >> /etc/systemd/coredump.conf
@@ -470,9 +351,11 @@ echo "umask 077" >> /etc/profile
 echo "umask 077" >> /etc/bash.bashrc
 echo "ALL: LOCAL, 127.0.0.1" >> /etc/hosts.allow
 echo "ALL: ALL" > /etc/hosts.deny
-echo "TMOUT=300
-      readonly TMOUT
-      export TMOUT" > /etc/profile.d/autologout.sh
+cat > /etc/profile.d/autologout.sh <<'EOF'
+TMOUT=300
+readonly TMOUT
+export TMOUT
+EOF
 cat > /etc/security/access.conf << 'EOF'
 -:ALL EXCEPT dev:LOCAL
 -:dev:ALL EXCEPT LOCAL
@@ -483,14 +366,13 @@ EOF
 
 
 # GRUB
-sed -i 's|^GRUB_CMDLINE_LINUX_DEFAULT=.* GRUB_CMDLINE_LINUX_DEFAULT="slab_nomerge init_on_alloc=1 init_on_free=1 initrdmem=off page_alloc.shuffle=1 slub_debug=P pti=on l1tf=full mds=full spectre_v2=on spec_store_bypass_disable=on tsx=off tsx_async_abort=full retbleed=auto random.trust_cpu=off random.trust_bootloader=off vsyscall=none kvm.nx_huge_pages=force kexec_load_disabled=1 supervisor_random=1 quiet ipv6.disable=1 loglevel=0 apparmor=1 security=apparmor"|' /etc/default/grub
+sed -i 's|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT="slab_nomerge init_on_alloc=1 init_on_free=1 page_alloc.shuffle=1 pti=on l1tf=full mds=full spectre_v2=on spec_store_bypass_disable=on tsx=off tsx_async_abort=full retbleed=auto random.trust_cpu=off random.trust_bootloader=off vsyscall=none kvm.nx_huge_pages=force kexec_load_disabled=1 quiet ipv6.disable=1 loglevel=0 apparmor=1 security=apparmor"|' /etc/default/grub
 update-grub
 chown root:root /etc/default/grub
-chmod 640 /etc/default/grub 
-
+chmod 640 /etc/default/grub
 
 # SYSCTL
-cat > /user/lib/sysctl.d/sysctl.conf << 'EOF'
+cat > /usr/lib/sysctl.d/sysctl.conf << 'EOF'
 net.ipv4.conf.all.rp_filter = 1
 net.ipv4.conf.default.rp_filter = 1
 net.ipv4.conf.all.accept_source_route = 0
@@ -529,6 +411,8 @@ vm.max_map_count=262144
 net.core.default_qdisc = fq
 net.ipv4.tcp_congestion_control = bbr
 EOF
+sysctl --system
+update-initramfs -u
 
 
 # MODULES
@@ -740,7 +624,6 @@ userdel sshd
 userdel tss
 userdel usbmux
 userdel dnsqmasq
-userdel nobody
 userdel statd
 userdel hplip
 userdel colord
@@ -863,6 +746,7 @@ iptables -A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
 iptables -A OUTPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
 iptables -A OUTPUT -p udp --dport 51820 -j ACCEPT
 iptables -A INPUT -i wg0-mullvad -j ACCEPT
+iptables -A OUTPUT -o wg0-mullvad -j ACCEPT
 iptables -A OUTPUT ! -o wg0-mullvad -m conntrack --ctstate NEW -j DROP
 iptables -A INPUT -j DROP
 ip6tables -F

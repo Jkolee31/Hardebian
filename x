@@ -72,9 +72,7 @@ EOF
 
 # INSTALL PACKAGES
 apt update
-apt install -y pamu2fcfg libpam-u2f rsyslog chrony fail2ban needrestart apt-listchanges \
-acct sysstat rkhunter chkrootkit debsums apt-show-versions unzip patch lynis macchanger \
-unhide tcpd fonts-liberation extrepo alsa-utils pipewire pipewire-audio-client-libraries pipewire-pulse wireplumber gnome-brave-icon-theme breeze-gtk-theme bibata* mousepad xfce4 xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xfce4-pulse* xfce4-whisk* opensnitch* python3-opensnitch* git apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra
+apt install -y pamu2fcfg libpam-u2f rsyslog chrony fail2ban needrestart apt-listchanges acct sysstat rkhunter chkrootkit debsums apt-show-versions unzip patch lynis macchanger unhide tcpd fonts-liberation extrepo alsa-utils pipewire pipewire-audio-client-libraries pipewire-pulse wireplumber gnome-brave-icon-theme breeze-gtk-theme bibata* mousepad xfce4 xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xfce4-pulse* xfce4-whisk* opensnitch* python3-opensnitch* git apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra
 
 # PAM/U2F
 mkdir -p /home/dev/.config

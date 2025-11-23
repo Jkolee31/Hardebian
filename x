@@ -55,31 +55,17 @@ netfilter-persistent save
 
 
 # DISABLE & MASK UNNECESSARY SERVICES
-systemctl disable --now \
-  debug-shell.service wpa_supplicant speech-dispatcher bluez bluetooth.service \
-  apport.service avahi-daemon.socket avahi-daemon.service \
-  cups-browsed cups.socket cups.path cups.service \
-  ModemManager.service fprintd.service rpcbind.target printer.target
+systemctl disable --now debug-shell.service wpa_supplicant speech-dispatcher bluez bluetooth.service apport.service avahi-daemon.socket avahi-daemon.service cups-browsed cups.socket cups.path cups.service ModemManager.service fprintd.service rpcbind.target printer.target
 
-systemctl mask \
-  debug-shell.service wpa_supplicant speech-dispatcher bluez bluetooth.service \
-  apport.service avahi-daemon.socket avahi-daemon.service \
-  cups-browsed cups.socket cups.path cups.service \
-  ModemManager.service fprintd.service rpcbind.target printer.target
+systemctl mask debug-shell.service wpa_supplicant speech-dispatcher bluez bluetooth.service apport.service avahi-daemon.socket avahi-daemon.service cups-browsed cups.socket cups.path cups.service ModemManager.service fprintd.service rpcbind.target printer.target
 
 # PACKAGE REMOVAL
-apt purge -y zram* pci* pmount* acpi* anacron* avahi* bc bind9* dns* \
-  isc-dhcp* lxc* docker* podman* xen* bochs* uml* vagrant* ssh* openssh* \
-  samba* winbind* qemu* libvirt* virt* nfs* blue* espeak* wireless* \
-  os-prober* netcat* Modem* || true
+apt purge zram* pci* pmount* acpi* anacron* avahi* bc bind9* dns* isc-dhcp* lxc* docker* podman* xen* bochs* uml* vagrant* ssh* openssh* samba* winbind* qemu* libvirt* virt* nfs* blue* espeak* wireless* os-prober* netcat* Modem* ssh* openssh* pci* inet* 
 
 
 install -d /etc/apt/preferences.d
 cat >/etc/apt/preferences.d/deny-ssh.pref <<'EOF'
-Package: openssh* dropbear* ssh* tinyssh* qemu* libvirt* uml* virt* \
-courier* dma* tripwire* avahi* samba* pmount* sane* netcat* os-prober* \
-make* blue* rpc* nfs* cup* anacron* exim* print* vagrant* lxc* docker* \
-podman* xen* bochs* gnustep* sendmail* mobile* wireless* inet*
+Package: openssh* dropbear* ssh* tinyssh* qemu* libvirt* uml* virt* courier* dma* tripwire* avahi* samba* pmount* sane* netcat* os-prober* make* blue* rpc* nfs* cup* anacron* exim* print* vagrant* lxc* docker* podman* xen* bochs* gnustep* sendmail* mobile* wireless* inet*
 Pin: release *
 Pin-Priority: -1
 EOF
@@ -88,17 +74,15 @@ EOF
 apt update
 apt install -y pamu2fcfg libpam-u2f rsyslog chrony fail2ban needrestart apt-listchanges \
 acct sysstat rkhunter chkrootkit debsums apt-show-versions unzip patch lynis macchanger \
-unhide tcpd fonts-liberation extrepo alsa-utils pipewire pipewire-audio-client-libraries \
-pipewire-pulse wireplumber gnome-brave-icon-theme breeze-gtk-theme bibata* mousepad xfce4 \
-xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xfce4-pulse* \
-xfce4-whisk* opensnitch* python3-opensnitch* git apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra
+unhide tcpd fonts-liberation extrepo alsa-utils pipewire pipewire-audio-client-libraries pipewire-pulse wireplumber gnome-brave-icon-theme breeze-gtk-theme bibata* mousepad xfce4 xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xfce4-pulse* xfce4-whisk* opensnitch* python3-opensnitch* git apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra
 
 # PAM/U2F
 mkdir -p /home/dev/.config
 pamu2fcfg -u dev > /home/dev/.config/default
 chmod 600 /home/dev/.config/default
 install -o root -g root -m 600 /home/dev/.config/default /etc/conf
-chattr +i /home/dev/.config/default /etc/conf
+chattr +i /home/dev/.config/default
+chattr +i /etc/conf
 
 cat >/etc/pam.d/chfn <<'EOF'
 #%PAM-1.0
@@ -165,7 +149,6 @@ EOF
 cat >/etc/pam.d/sudo <<'EOF'
 #%PAM-1.0
 auth      sufficient  pam_u2f.so authfile=/etc/conf
-account   required    pam_access.so
 account   include     common-account
 password  include     common-password
 session   include     common-session
@@ -263,7 +246,7 @@ EOF
 cat >/etc/pam.d/runuser <<'EOF'
 #%PAM-1.0
 auth      sufficient  pam_u2f.so authfile=/etc/conf
-auth	    sufficient  pam_rootok.so
+auth	      sufficient  pam_rootok.so
 session   required    pam_limits.so
 session   required    pam_unix.so
 EOF
@@ -271,7 +254,7 @@ EOF
 cat >/etc/pam.d/runuser-l <<'EOF'
 #%PAM-1.0
 auth      sufficient  pam_u2f.so authfile=/etc/conf
-auth	    include     runuser
+auth	      include     runuser
 session   include     runuser
 EOF
 
@@ -320,13 +303,13 @@ nospoof on
 EOF
 
 cat >/etc/security/limits.d/limits.conf <<'EOF'
-* hard core 0
-* hard nproc 150
-* hard nofile 1024
-* soft nofile 512
-* - maxlogins 2
+*    hard core 0
+*    hard nproc 200
+*    hard nofile 1024
+*    soft nofile 512
+*    -    maxlogins 2
 root hard nproc 3000
-root - maxlogins 5
+root -    maxlogins 5
 EOF
 
 echo "ProcessSizeMax=0
@@ -410,14 +393,8 @@ net.ipv4.tcp_fack = 0
 net.ipv4.tcp_rfc1337 = 1
 net.ipv4.tcp_sack = 0
 net.ipv4.tcp_syncookies = 1
-net.ipv6.conf.all.accept_ra = 0
-net.ipv6.conf.all.accept_redirects = 0
-net.ipv6.conf.all.accept_source_route = 0
-net.ipv6.conf.all.disable_ipv6 = 1
-net.ipv6.conf.default.accept_ra = 0
-net.ipv6.conf.default.accept_redirects = 0
-net.ipv6.conf.default.accept_source_route = 0
 net.ipv6.conf.default.disable_ipv6 = 1
+net.ipv6.conf.all.disable_ipv6 = 1
 user.max_user_namespaces = 0
 vm.max_map_count = 262144
 vm.mmap_min_addr = 65536

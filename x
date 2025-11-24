@@ -2,10 +2,7 @@
 
 set -euo pipefail
 
-apt update
-
 # PRE CONFIG
-apt update
 echo 'Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";' >> /etc/apt/apt.conf.d/50unattended-upgrades
 cat >/etc/apt/apt.conf.d/98-hardening <<'EOF'
 APT::Get::AllowUnauthenticated "false";
@@ -15,7 +12,7 @@ EOF
 apt update
 
 # FIREWALL
-apt install iptables iptables-persistent netfilter-persistent
+apt install -y iptables iptables-persistent netfilter-persistent
 systemctl enable netfilter-persistent
 service netfilter-persistent start
 iptables -F
@@ -32,17 +29,17 @@ iptables -N TCP
 iptables -P INPUT DROP
 iptables -P FORWARD DROP
 iptables -P OUTPUT ACCEPT
+iptables -A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
 iptables -A INPUT -i lo -j ACCEPT
 iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
-iptables -A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
 iptables -A INPUT -p udp -m conntrack --ctstate NEW -j UDP
 iptables -A INPUT -p tcp --syn -m conntrack --ctstate NEW -j TCP
-iptables -A UDP -p udp --dport 53 -j ACCEPT
-iptables -A TCP -p tcp --dport 443 -j ACCEPT
-iptables -A TCP -p tcp --dport 80 -j ACCEPT
 iptables -A INPUT -p udp -j DROP
 iptables -A INPUT -p tcp -j DROP
 iptables -A INPUT -j DROP
+iptables -A UDP -p udp --dport 53 -j ACCEPT
+iptables -A TCP -p tcp --dport 443 -j ACCEPT
+iptables -A TCP -p tcp --dport 80 -j ACCEPT
 ip6tables -F
 ip6tables -X
 ip6tables -Z
@@ -53,38 +50,181 @@ iptables-save   > /etc/iptables/rules.v4
 ip6tables-save  > /etc/iptables/rules.v6
 netfilter-persistent save
 
-
 # DISABLE & MASK UNNECESSARY SERVICES
-systemctl disable --now debug-shell.service wpa_supplicant speech-dispatcher bluez bluetooth.service apport.service avahi-daemon.socket avahi-daemon.service cups-browsed cups.socket cups.path cups.service ModemManager.service fprintd.service rpcbind.target printer.target
+systemctl disable --now debug-shell.service wpa_supplicant speech-dispatcher bluez bluetooth.service apport.service avahi-daemon.socket avahi-daemon.service cups-browsed cups.socket cups.path cups.service nvmf-autoconnect.service nvmefc-boot-connections.service ModemManager.service usbmuxd.service usb_modeswitch@.service usb-gadget.target udisks2.service kexec.target systemd-kexec.service fprintd.service systemd-binfmt.service ctrl-alt-del.target rpcbind.target proc-sys-fs-binfmt_misc.mount proc-sys-fs-binfmt_misc.automount printer.target
 
-systemctl mask debug-shell.service wpa_supplicant speech-dispatcher bluez bluetooth.service apport.service avahi-daemon.socket avahi-daemon.service cups-browsed cups.socket cups.path cups.service ModemManager.service fprintd.service rpcbind.target printer.target
+systemctl mask debug-shell.service wpa_supplicant speech-dispatcher bluez bluetooth.service apport.service avahi-daemon.socket avahi-daemon.service cups-browsed cups.socket cups.path cups.service nvmf-autoconnect.service nvmefc-boot-connections.service ModemManager.service usbmuxd.service usb_modeswitch@.service usb-gadget.target udisks2.service kexec.target systemd-kexec.service fprintd.service systemd-binfmt.service ctrl-alt-del.target rpcbind.target proc-sys-fs-binfmt_misc.mount proc-sys-fs-binfmt_misc.automount printer.target
 
-# PACKAGE REMOVAL
-apt purge zram* pci* pmount* acpi* anacron* avahi* bc bind9* dns* isc-dhcp* lxc* docker* podman* xen* bochs* uml* vagrant* ssh* openssh* samba* winbind* qemu* libvirt* virt* nfs* blue* espeak* wireless* os-prober* netcat* Modem* ssh* openssh* pci* inet* 
-
+# PACKAGE RESTRICTIONS
+apt purge -y  zram* pci* pmount* acpi* anacron* avahi* bc bind9* dns* fastfetch fonts-noto* fprint* isc-dhcp* lxc* docker* podman* xen* bochs* uml* vagrant* libssh* ssh* openssh* acpi* samba* winbind* qemu* libvirt* virt* cron* avahi* cup* print* rsync* virtual* sane* rpc* bind* nfs* blue* pp* spee* espeak* mobile* wireless* bc perl inet* util-linux-locales tasksel* vim* os-prober* netcat* libssh*
 
 install -d /etc/apt/preferences.d
 cat >/etc/apt/preferences.d/deny-ssh.pref <<'EOF'
-Package: openssh* dropbear* ssh* tinyssh* qemu* libvirt* uml* virt* courier* dma* tripwire* avahi* samba* pmount* sane* netcat* os-prober* make* blue* rpc* nfs* cup* anacron* exim* print* vagrant* lxc* docker* podman* xen* bochs* gnustep* sendmail* mobile* wireless* inet*
+Package: openssh*
 Pin: release *
 Pin-Priority: -1
+
+Package: dropbear*
+Pin: release *
+Pin-Priority: -1
+
+Package: ssh*
+Pin: release *
+Pin-Priority: -1
+
+Package: tinyssh*
+Pin: release *
+Pin-Priority: -1
+
+Package: qemu*       
+Pin: release *
+Pin-Priority: -1
+
+Package: libvirt*
+Pin: release *
+Pin-Priority: -1
+
+Package: uml*
+Pin: release *
+Pin-Priority: -1
+
+Package: virt*
+Pin: release *
+Pin-Priority: -1
+
+Package: courier*
+Pin: release *
+Pin-Priority: -1
+
+Package: dma*
+Pin: release *
+Pin-Priority: -1
+
+Package: tripwire*
+Pin: release *
+Pin-Priority: -1
+
+Package: avahi*
+Pin: release *
+Pin-Priority: -1
+
+Package: samba*
+Pin: release *
+Pin-Priority: -1
+
+Package: pmount*
+Pin: release *
+Pin-Priority: -1
+
+Package: sane*
+Pin: release *
+Pin-Priority: -1
+
+Package: netcat*
+Pin: release *
+Pin-Priority: -1
+
+Package: os-prober*
+Pin: release *
+Pin-Priority: -1
+
+Package: make*
+Pin: release *
+Pin-Priority: -1
+
+Package: pp*
+Pin: release *
+Pin-Priority: -1
+
+Package: blue*
+Pin: release *
+Pin-Priority: -1
+
+Package: rpc*
+Pin: release *
+Pin-Priority: -1
+
+Package: nfs*
+Pin: release *
+Pin-Priority: -1
+
+Package: cup*
+Pin: release *
+Pin-Priority: -1
+
+Package: anacron*
+Pin: release *
+Pin-Priority: -1
+
+Package: exim*
+Pin: release *
+Pin-Priority: -1
+
+Package: print*
+Pin: release *
+Pin-Priority: -1
+
+Package: vagrant*
+Pin: release *
+Pin-Priority: -1
+
+Package: lxc*
+Pin: release *
+Pin-Priority: -1
+
+Package: docker*
+Pin: release *
+Pin-Priority: -1
+
+Package: podman*
+Pin: release *
+Pin-Priority: -1
+
+Package: xen*
+Pin: release *
+Pin-Priority: -1
+
+Package: bochs*
+Pin: release *
+Pin-Priority: -1
+
+Package: gnustep*
+Pin: release *
+Pin-Priority: -1
+
+Package: sendmail*
+Pin: release *
+Pin-Priority: -1
+
+Package: mobile*
+Pin: release *
+Pin-Priority: -1
+
+Package: wireless*
+Pin: release *
+Pin-Priority: -1
+
+Package: inet*
+Pin: release *
+Pin-Priority: -1
+
+Package: nftables*
+Pin: release *
+Pin-Priority: -1
+
 EOF
 
 # INSTALL PACKAGES
-apt update
-apt install -y pamu2fcfg libpam-u2f rsyslog chrony fail2ban needrestart apt-listchanges acct sysstat rkhunter chkrootkit debsums apt-show-versions unzip patch lynis macchanger unhide tcpd fonts-liberation extrepo alsa-utils pipewire pipewire-audio-client-libraries pipewire-pulse wireplumber gnome-brave-icon-theme breeze-gtk-theme bibata* mousepad xfce4 xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xfce4-pulse* xfce4-whisk* opensnitch* python3-opensnitch* git apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra
+apt install -y pamu2fcfg libpam-u2f rsyslog chrony libpam-tmpdir fail2ban needrestart apt-listchanges acct sysstat rkhunter chkrootkit debsums apt-show-versions unzip patch alsa-utils pipewire pipewire-audio-client-libraries pipewire-pulse wireplumber lynis macchanger unhide tcpd fonts-liberation extrepo gnome-brave-icon-theme breeze-gtk-theme bibata* mousepad xfce4 libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xserver-xorg xinit xserver-xorg-legacy xfce4-pulse* xfce4-whisk* opensnitch* python3-opensnitch*
 
 # PAM/U2F
-mkdir -p /home/dev/.config
-pamu2fcfg -u dev > /home/dev/.config/default
-chmod 600 /home/dev/.config/default
-install -o root -g root -m 600 /home/dev/.config/default /etc/conf
-chattr +i /home/dev/.config/default
+pamu2fcfg -u dev > /etc/conf
+chmod 600 /etc/conf
+chown root:root /etc/conf
 chattr +i /etc/conf
 
 cat >/etc/pam.d/chfn <<'EOF'
 #%PAM-1.0
-auth      sufficient  pam_u2f.so authfile=/etc/conf
 auth      sufficient  pam_rootok.so
 auth      include     common-auth
 account   include     common-account
@@ -93,13 +233,11 @@ EOF
 
 cat >/etc/pam.d/chpasswd <<'EOF'
 #%PAM-1.0
-auth      sufficient  pam_u2f.so authfile=/etc/conf
 password  include     common-password
 EOF
 
 cat >/etc/pam.d/chsh <<'EOF'
 #%PAM-1.0
-auth      sufficient  pam_u2f.so authfile=/etc/conf
 auth      required    pam_shells.so
 auth      sufficient  pam_rootok.so
 auth      include     common-auth
@@ -146,7 +284,7 @@ EOF
 
 cat >/etc/pam.d/sudo <<'EOF'
 #%PAM-1.0
-auth      sufficient  pam_u2f.so authfile=/etc/conf
+auth      required    pam_u2f.so authfile=/etc/conf
 account   include     common-account
 password  include     common-password
 session   include     common-session
@@ -154,8 +292,7 @@ EOF
 
 cat >/etc/pam.d/sudo-i <<'EOF'
 #%PAM-1.0
-auth      sufficient  pam_u2f.so authfile=/etc/conf
-account   required    pam_access.so
+auth      required    pam_u2f.so authfile=/etc/conf
 account   include     common-account
 password  include     common-password
 session   include     common-session
@@ -163,8 +300,7 @@ EOF
 
 cat >/etc/pam.d/sshd <<'EOF'
 #%PAM-1.0
-auth      sufficient  pam_u2f.so authfile=/etc/conf
-account   required    pam_access.so
+auth      required    pam_u2f.so authfile=/etc/conf
 account   include     common-account
 password  include     common-password
 session   include     common-session
@@ -172,8 +308,7 @@ EOF
 
 cat >/etc/pam.d/su <<'EOF'
 #%PAM-1.0
-auth      sufficient  pam_u2f.so authfile=/etc/conf
-account   required    pam_access.so
+auth      required    pam_u2f.so authfile=/etc/conf
 account   include     common-account
 password  include     common-password
 session   include     common-session
@@ -181,8 +316,7 @@ EOF
 
 cat >/etc/pam.d/su-l <<'EOF'
 #%PAM-1.0
-auth      sufficient  pam_u2f.so authfile=/etc/conf
-account   required    pam_access.so
+auth      required    pam_u2f.so authfile=/etc/conf
 account   include     common-account
 password  include     common-password
 session   include     common-session
@@ -190,7 +324,6 @@ EOF
 
 cat >/etc/pam.d/other <<'EOF'
 #%PAM-1.0
-auth      sufficient  pam_u2f.so authfile=/etc/conf
 auth      required    pam_deny.so
 account   required    pam_deny.so
 password  required    pam_deny.so
@@ -199,20 +332,21 @@ EOF
 
 cat >/etc/pam.d/login <<'EOF'
 #%PAM-1.0
-auth      sufficient  pam_u2f.so authfile=/etc/conf
 auth      optional    pam_faildelay.so delay=3000000
 auth      requisite   pam_nologin.so
+auth      required    pam_u2f.so authfile=/etc/conf
 account   required    pam_access.so
 session   required    pam_limits.so
+account   include     common-account
 session   include     common-session
 password  include     common-password
 EOF
 
 cat >/etc/pam.d/lightdm <<'EOF'
 #%PAM-1.0
-auth      sufficient  pam_u2f.so authfile=/etc/conf
 auth      requisite   pam_nologin.so
-account   required    pam_access.so
+auth      required    pam_u2f.so authfile=/etc/conf
+account   include     common-account
 session   [success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux.so close
 session   include     common-session
 session   [success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux.so open
@@ -221,39 +355,34 @@ EOF
 
 cat >/etc/pam.d/lightdm-greeter <<'EOF'
 #%PAM-1.0
-auth      sufficient  pam_u2f.so authfile=/etc/conf
 auth      requisite   pam_nologin
-account   required    pam_access.so
-password  required    pam_unix.so
+account   include     common-account
+password  include     pam_unix.so
 session   optional    pam_systemd.so
 session   include     common-session
 EOF
 
 cat >/etc/pam.d/newusers <<'EOF'
 #%PAM-1.0
-auth      sufficient  pam_u2f.so authfile=/etc/conf
 password  include     common-password
 EOF
 
 cat >/etc/pam.d/passwd <<'EOF'
 #%PAM-1.0
-auth      sufficient  pam_u2f.so authfile=/etc/conf
 password  include     common-password
 EOF
 
 cat >/etc/pam.d/runuser <<'EOF'
 #%PAM-1.0
-auth      sufficient  pam_u2f.so authfile=/etc/conf
-auth	      sufficient  pam_rootok.so
-session   required    pam_limits.so
-session   required    pam_unix.so
+auth	    sufficient  pam_rootok.so
+session	  required    pam_limits.so
+session	  required    pam_unix.so
 EOF
 
 cat >/etc/pam.d/runuser-l <<'EOF'
 #%PAM-1.0
-auth      sufficient  pam_u2f.so authfile=/etc/conf
-auth	      include     runuser
-session   include     runuser
+auth	    include     runuser
+session	  include     runuser
 EOF
 
 # OVH HARDENING SCRIPT
@@ -280,13 +409,11 @@ bin/hardening.sh --apply --allow-unsupported-distribution
 cat >/etc/sudoers <<'EOF'
 Defaults passwd_tries=2
 Defaults use_pty
-Defaults logfile="/var/log/sudo.log"
 Defaults secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-root ALL=(ALL) ALL
+root  ALL=(ALL) ALL
 %sudo ALL=(ALL) ALL
 EOF
 chmod 0440 /etc/sudoers
-
 
 # MISC HARDENING 
 echo "/bin/bash" > /etc/shells
@@ -297,17 +424,16 @@ dpkg-reconfigure xserver-xorg-legacy
 cat >/etc/host.conf <<'EOF'
 order hosts,bind
 multi on
-nospoof on
 EOF
 
 cat >/etc/security/limits.d/limits.conf <<'EOF'
-*    hard core 0
-*    hard nproc 200
-*    hard nofile 1024
-*    soft nofile 512
-*    -    maxlogins 2
-root hard nproc 3000
-root -    maxlogins 5
+*     hard  core       0
+*     hard  nproc      200
+*     hard  nofile     1024
+*     soft  nofile     512
+*     -     maxlogins  2
+root  -     maxlogins  5
+root  hard  nproc      3000
 EOF
 
 echo "ProcessSizeMax=0
@@ -324,7 +450,7 @@ sed -i 's/^ENCRYPT_METHOD.*/ENCRYPT_METHOD YESCRYPT/' /etc/login.defs
 sed -i 's/^UID_MIN.*/UID_MIN 1000/' /etc/login.defs
 sed -i 's/^UID_MAX.*/UID_MAX 60000/' /etc/login.defs
 sed -i 's/^CREATE_HOME.*/CREATE_HOME yes/' /etc/login.defs
-sed -i 's/^CHFN_RESTRICT.*/CHFN_RESTRICT rwh/' /etc/login.defs
+sed -i 's/^CHFN_RESTRICT.*/CHFN_RESTRICT /' /etc/login.defs
 sed -i "/^SHELL=/ s/=.*\+/=\/usr\/sbin\/nologin/" /etc/default/useradd
 sed -i "/^DSHELL=/ s/=.*\+/=\/usr\/sbin\/nologin/" /etc/adduser.conf
 echo "UMASK 077" >> /etc/login.defs
@@ -332,19 +458,21 @@ echo "umask 077" >> /etc/profile
 echo "umask 077" >> /etc/bash.bashrc
 echo "ALL: LOCAL, 127.0.0.1" >> /etc/hosts.allow
 echo "ALL: ALL" > /etc/hosts.deny
+
 cat > /etc/profile.d/autologout.sh <<'EOF'
 TMOUT=300
 readonly TMOUT
 export TMOUT
 EOF
+
 cat > /etc/security/access.conf << 'EOF'
+-:ALL EXCEPT dev:tty1
 -:ALL EXCEPT dev:LOCAL
 -:dev:ALL EXCEPT LOCAL
-+:dev:192.168.88.0/24
++:dev:tty1 tty2 tty3
 -:root:ALL
 -:ALL:ALL
 EOF
-
 
 # GRUB
 sed -i 's|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT="slab_nomerge init_on_alloc=1 init_on_free=1 page_alloc.shuffle=1 pti=on l1tf=full mds=full spectre_v2=on spec_store_bypass_disable=on tsx=off tsx_async_abort=full retbleed=auto random.trust_cpu=off random.trust_bootloader=off vsyscall=none kvm.nx_huge_pages=force kexec_load_disabled=1 quiet ipv6.disable=1 loglevel=0 apparmor=1 security=apparmor"|' /etc/default/grub
@@ -370,18 +498,57 @@ kernel.printk = 3 3 3 3
 kernel.randomize_va_space = 2
 kernel.sysrq = 0
 kernel.unprivileged_bpf_disabled = 1
-kernel.unprivileged_userns_clone = 0
+kernel.unprivileged_userns_clone = 1
 net.core.bpf_jit_harden = 2
 net.core.default_qdisc = fq
-net.ipv4.conf.all.accept_redirects = 0
-net.ipv4.conf.all.accept_source_route = 0
-net.ipv4.conf.all.rp_filter = 1
-net.ipv4.conf.all.send_redirects = 0
-net.ipv4.conf.default.accept_redirects = 0
-net.ipv4.conf.default.accept_source_route = 0
-net.ipv4.conf.default.rp_filter = 1
-net.ipv4.conf.default.secure_redirects = 0
-net.ipv4.conf.default.send_redirects = 0
+net.ipv4.conf.all.accept_local=0
+net.ipv4.conf.*.accept_local=0
+net.ipv4.conf.default.accept_local=0
+net.ipv4.conf.all.accept_redirects=0
+net.ipv4.conf.*.accept_redirects=0
+net.ipv4.conf.default.accept_redirects=0
+net.ipv4.conf.all.accept_source_route=0
+net.ipv4.conf.*.accept_source_route=0
+net.ipv4.conf.default.accept_source_route=0
+net.ipv4.conf.all.arp_evict_nocarrier=1
+net.ipv4.conf.*.arp_evict_nocarrier=1
+net.ipv4.conf.default.arp_evict_nocarrier=1
+net.ipv4.conf.all.arp_filter=1
+net.ipv4.conf.*.arp_filter=1
+net.ipv4.conf.default.arp_filter=1
+net.ipv4.conf.all.arp_ignore=2
+net.ipv4.conf.*.arp_ignore=2
+net.ipv4.conf.default.arp_ignore=2
+net.ipv4.conf.all.drop_gratuitous_arp=1
+net.ipv4.conf.*.drop_gratuitous_arp=1
+net.ipv4.conf.default.drop_gratuitous_arp=1
+net.ipv4.conf.all.shared_media=0
+net.ipv4.conf.*.shared_media=0
+net.ipv4.conf.default.shared_media=0
+net.ipv4.conf.all.forwarding=0
+net.ipv4.conf.*.forwarding=0
+net.ipv4.conf.default.forwarding=0
+net.ipv4.conf.all.mc.forwarding=0
+net.ipv4.conf.*.mc.forwarding=0
+net.ipv4.conf.default.mc.forwarding=0
+net.ipv4.conf.all.route_localnet=0
+net.ipv4.conf.*.route_localnet=0
+net.ipv4.conf.default.route_localnet=0
+net.ipv4.conf.all.rp_filter=1
+net.ipv4.conf.*.rp_filter=1
+net.ipv4.conf.default.rp_filter=1
+net.ipv4.conf.all.secure_redirects=0
+net.ipv4.conf.*.secure_redirects=0
+net.ipv4.conf.default.secure_redirects=0
+net.ipv4.conf.all.send_redirects=0
+net.ipv4.conf.*.send_redirects=0
+net.ipv4.conf.default.send_redirects=0
+net.ipv4.conf.all.shared_media=0
+net.ipv4.conf.*.shared_media=0
+net.ipv4.conf.default.shared_media=0
+net.ipv6.conf.all.disable_ipv6=1
+net.ipv6.conf.*.disable_ipv6=1
+net.ipv6.conf.default.disable_ipv6=1
 net.ipv4.icmp_echo_ignore_all = 1
 net.ipv4.icmp_echo_ignore_broadcasts = 1
 net.ipv4.icmp_ignore_bogus_error_responses = 1
@@ -391,16 +558,12 @@ net.ipv4.tcp_fack = 0
 net.ipv4.tcp_rfc1337 = 1
 net.ipv4.tcp_sack = 0
 net.ipv4.tcp_syncookies = 1
-net.ipv6.conf.default.disable_ipv6 = 1
-net.ipv6.conf.all.disable_ipv6 = 1
 user.max_user_namespaces = 0
 vm.max_map_count = 262144
 vm.mmap_min_addr = 65536
 vm.unprivileged_userfaultfd = 0
 EOF
 sysctl --system
-update-initramfs -u
-
 
 # MODULES
 cat > /etc/modprobe.d/harden.conf << 'EOF'
@@ -593,29 +756,20 @@ install gnss-usb /bin/false
 EOF
 
 # UNNECESSARY ACCOUNTS/GROUPS
-groupdel avahi --force
-groupdel _flatpak --force
 groupdel _ssh --force
 groupdel bluetooth --force
 groupdel irc --force
 groupdel kvm --force
-groupdel nm-openconnect --force
-groupdel nm-openvpn --force
-groupdel sambashare --force
-groupdel scanner --force
 groupdel voice --force
-groupdel vboxsf --force
 groupdel games --force
-groupdel colord --force
-userdel sshd
-userdel tss
-userdel usbmux
-userdel dnsqmasq
-userdel statd
-userdel hplip
-userdel colord
-userdel _rpc
-userdel avahi
+groupdel systemd-timesync --force
+groupdel proxy --force
+userdel www-data
+userdel sync
+userdel lp
+userdel mail
+userdel proxy
+userdel dhcpcd
 userdel games
 userdel irc
 userdel list
@@ -623,32 +777,29 @@ userdel news
 userdel bluetooth
 userdel uucp
 
-
 # MOUNTS
-echo "
+echo "                                    
 /dev/mapper/lvg-root                      /                          ext4       defaults,noatime,nodev,errors=remount-ro 0 1
 /dev/mapper/lvg-home                      /home                      ext4       defaults,noatime,nodev,nosuid 0 2
+/dev/mapper/lvg-run--shm                  /run/shm                   ext4       defaults,noatime,nodev,nosuid,noexec 0 2
 /dev/mapper/lvg-tmp                       /tmp                       ext4       defaults,noatime,nodev,nosuid,noexec 0 2
 /dev/mapper/lvg-usr                       /usr                       ext4       defaults,noatime,nodev,ro 0 2
 /dev/mapper/lvg-var                       /var                       ext4       defaults,noatime,nodev,nosuid 0 2
 /dev/mapper/lvg-var--log                  /var/log                   ext4       defaults,noatime,nodev,nosuid,noexec 0 2
+/dev/mapper/lvg-var--log--audit           /var/log/audit             ext4       defaults,noatime,nodev,nosuid,noexec 0 2
 /dev/mapper/lvg-var--tmp                  /var/tmp                   ext4       defaults,noatime,nodev,nosuid,noexec 0 2
-tmpfs                                     /home/user/.cache          tmpfs      defaults,nodev,nosuid,noexec,uid=1000,gid=1000,mode=700 0 0
-proc                                      /proc                      proc       defaults,nodev,nosuid,noexec,hidepid=2 0 0
-securityfs                                /sys/kernel/security       securityfs defaults,nodev,nosuid,noexec 0 0
-pstore                                    /sys/fs/pstore             pstore     defaults,nodev,nosuid,noexec 0 0
-systemd                                   /sys/fs/cgroup/systemd     cgroup     defaults,nodev,nosuid,noexec 0 0
-efivarfs                                  /sys/firmware/efi/efivars  efivarfs   defaults,nodev,nosuid,noexec 0 0
-net_cls                                   /sys/fs/cgroup/net_cls     cgroup     defaults,nodev,nosuid,noexec 0 0
-tmpfs                                     /run                       tmpfs      defaults,nodev,nosuid,noexec,mode=0755 0 0
-tmpfs                                     /tmp                       tmpfs      defaults,nodev,nosuid,noexec,mode=1777 0 0
-tmpfs                                     /var/tmp                   tmpfs      defaults,nodev,nosuid,noexec,bind,mode=1777
-tmpfs                                     /dev/shm                   tmpfs      defaults,noexec,nosuid,mode=1777 0 0
-udev                                      /dev                       devtmpfs   defaults,noexec,nosuid,noatime 0 0                              
-devpts                                    /dev/pts                   devpts     defaults,noexec,nosuid,noatime,newinstance,ptmxmode=0666 0 0
+/dev/mapper/lvg-swap                       none                      swap       sw 0 0
+tmpfs                                     /home/user/.cache          tmpfs      defaults,noatime,nodev,nosuid,noexec,uid=1000,gid=1000,mode=700 0 0
+proc                                      /proc                      proc       defaults,noatime,nodev,nosuid,noexec,hidepid=2 0 0
+tmpfs                                     /run                       tmpfs      defaults,noatime,nodev,nosuid,noexec,mode=0755 0 0
+tmpfs                                     /tmp                       tmpfs      defaults,noatime,nodev,nosuid,noexec,mode=1777 0 0
+tmpfs                                     /var/tmp                   tmpfs      defaults,noatime,nodev,nosuid,noexec,bind,mode=1777
+tmpfs                                     /dev/shm                   tmpfs      defaults,noatime,noexec,nosuid,mode=1777 0 0
+udev                                      /dev                       devtmpfs   defaults,noatime,noexec,nosuid,noatime 0 0                              
+devpts                                    /dev/pts                   devpts     defaults,noatime,noexec,nosuid,noatime,newinstance,ptmxmode=0666 0 0
 " >> /etc/fstab
 
-sed -i 's|^UUID=\([A-Za-z0-9-]\+\)[[:space:]]\+/boot/efi[[:space:]]\+vfat.*|UUID=\1                           /boot/efi            vfat      noatime,nodev,nosuid,noexec,umask=0077 0 1|' /etc/fstab  
+sed -i 's|^UUID=\([A-Za-z0-9-]\+\)[[:space:]]\+/boot/efi[[:space:]]\+vfat.*|UUID=\1                           /boot/efi                  vfat       noatime,nodev,nosuid,noexec,umask=0077 0 1|' /etc/fstab  
 
 # PERMISSIONS
 cd /etc
@@ -725,14 +876,14 @@ iptables -t mangle -Z
 iptables -P INPUT DROP
 iptables -P FORWARD DROP
 iptables -P OUTPUT DROP
+iptables -A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+iptables -A OUTPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
 iptables -A INPUT -i lo -j ACCEPT
 iptables -A OUTPUT -o lo -j ACCEPT
 iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
 iptables -A OUTPUT -m conntrack --ctstate INVALID -j DROP
-iptables -A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-iptables -A OUTPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-iptables -A OUTPUT -p udp --dport 51820 -j ACCEPT
 iptables -A INPUT -i wg0-mullvad -j ACCEPT
+iptables -A OUTPUT -p udp --dport 51820 -j ACCEPT
 iptables -A OUTPUT -o wg0-mullvad -j ACCEPT
 iptables -A OUTPUT ! -o wg0-mullvad -m conntrack --ctstate NEW -j DROP
 iptables -A INPUT -j DROP

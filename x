@@ -211,7 +211,6 @@ Pin-Priority: -1
 Package: nftables*
 Pin: release *
 Pin-Priority: -1
-
 EOF
 
 # INSTALL PACKAGES
@@ -890,7 +889,7 @@ chattr -R +i /etc/ssh
 
 
 # MULLVAD VPN
-apt install -y git rsync curl wget dirmngr apt-transport-https ca-certificates lsb-release gnupg gpg
+!apt! install -y git rsync curl wget dirmngr apt-transport-https ca-certificates lsb-release gnupg gpg
 curl -fsSLo /usr/share/keyrings/mullvad-keyring.asc https://repository.mullvad.net/deb/mullvad-keyring.asc
 echo "deb [signed-by=/usr/share/keyrings/mullvad-keyring.asc arch=$( dpkg --print-architecture )] https://repository.mullvad.net/deb/beta beta main" | tee /etc/apt/sources.list.d/mullvad.list
 apt update

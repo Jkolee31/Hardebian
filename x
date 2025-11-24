@@ -414,6 +414,7 @@ root  ALL=(ALL) ALL
 %sudo ALL=(ALL) ALL
 EOF
 chmod 0440 /etc/sudoers
+chmod 0440 /etc/sudoers.d
 
 # MISC HARDENING 
 echo "/bin/bash" > /etc/shells
@@ -848,6 +849,46 @@ chmod -R 0700 /var/spool/cron
 chmod -R 0700 /var/spool/at
 cd
 
+# LOCKDOWN
+apt clean
+apt autopurge 
+apt purge "$(dpkg -l | grep '^rc' | awk '{print $2}')"
+find / -perm -4000 -o -perm -2000 -exec chmod a-s {} \; 2>/dev/null
+find / -perm -4000 -exec chmod u-s {} \;
+find / -perm -4000 -exec chmod g-s {} \;
+find / -perm -2000 -exec chmod u-s {} \;
+find / -perm -2000 -exec chmod g-s {} \;
+chmod u+s /usr/bin/sudo
+chmod u+s /bin/sudo
+chattr +i /etc/fstab
+chattr +i /etc/adduser.conf
+chattr +i /etc/group
+chattr +i /etc/group-
+chattr +i /etc/hosts
+chattr +i /etc/host.conf
+chattr +i /etc/hosts.allow
+chattr +i /etc/hosts.deny
+chattr +i /etc/login.defs
+chattr +i /etc/default/grub
+chattr +i /etc/passwd
+chattr +i /etc/passwd-
+chattr +i /etc/gshadow-
+chattr +i /etc/gshadow
+chattr -R +i chattr -R +i /etc/sudoers*
+chattr +i /root/.bashrc
+chattr +i /etc/shadow
+chattr +i /etc/shadow-
+chattr +i /etc/shells
+chattr -R +i /etc/pam.d
+chattr +i /usr/lib/sysctl.d/sysctl.conf
+chattr -R +i /etc/modprobe.d
+chattr +i /etc/services
+chattr +i /etc/sudoers
+chattr -R +i /etc/security
+chattr -R +i /etc/iptables
+chattr -R +i /etc/ssh
+
+
 # MULLVAD VPN
 apt install -y git rsync curl wget dirmngr apt-transport-https ca-certificates lsb-release gnupg gpg
 curl -fsSLo /usr/share/keyrings/mullvad-keyring.asc https://repository.mullvad.net/deb/mullvad-keyring.asc
@@ -897,40 +938,3 @@ iptables-save   > /etc/iptables/rules.v4
 ip6tables-save  > /etc/iptables/rules.v6
 netfilter-persistent save
 
-# LOCKDOWN
-apt clean
-apt autopurge 
-apt purge "$(dpkg -l | grep '^rc' | awk '{print $2}')"
-find / -perm -4000 -o -perm -2000 -exec chmod a-s {} \; 2>/dev/null
-find / -perm -4000 -exec chmod u-s {} \;
-find / -perm -4000 -exec chmod g-s {} \;
-find / -perm -2000 -exec chmod u-s {} \;
-find / -perm -2000 -exec chmod g-s {} \;
-chmod u+s /usr/bin/sudo
-chmod u+s /bin/sudo
-chattr +i /etc/fstab
-chattr +i /etc/adduser.conf
-chattr +i /etc/group
-chattr +i /etc/group-
-chattr +i /etc/hosts
-chattr +i /etc/host.conf
-chattr +i /etc/hosts.allow
-chattr +i /etc/hosts.deny
-chattr +i /etc/login.defs
-chattr +i /etc/default/grub
-chattr +i /etc/passwd
-chattr +i /etc/passwd-
-chattr +i /etc/gshadow-
-chattr +i /etc/gshadow
-chattr -R +i /etc/sudoers.d
-chattr +i /root/.bashrc
-chattr +i /etc/shadow
-chattr +i /etc/shadow-
-chattr +i /etc/shells
-chattr -R +i /etc/pam.d
-chattr +i /usr/lib/sysctl.d/sysctl.conf
-chattr -R +i /etc/modprobe.d
-chattr +i /etc/services
-chattr +i /etc/sudoers
-chattr -R +i /etc/security
-chattr -R +i /etc/ssh

@@ -3,7 +3,28 @@
 set -euo pipefail
 
 # PRE CONFIG
-echo 'Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";' >> /etc/apt/apt.conf.d/50unattended-upgrades
+cat >/etc/apt/apt.conf.d/50unattended-upgrades <<'EOF'
+Unattended-Upgrade::Allowed-Origins {
+    "${distro_id}:${distro_codename}-security";
+    "${distro_id}ESMApps:${distro_codename}-apps-security";
+    "${distro_id}ESM:${distro_codename}-infra-security";
+};
+Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+Unattended-Upgrade::Remove-Unused-Dependencies "true";
+Unattended-Upgrade::Automatic-Reboot "false";
+Unattended-Upgrade::AutoFixInterruptedDpkg "true";
+Unattended-Upgrade::MinimalSteps "true";
+Unattended-Upgrade::Mail "root";
+Unattended-Upgrade::MailReport "on-change";
+EOF
+
+cat >/etc/apt/apt.conf.d/20auto-upgrades <<'EOF'
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Download-Upgradeable-Packages "1";
+APT::Periodic::AutocleanInterval "7";
+APT::Periodic::Unattended-Upgrade "1";
+EOF
+
 cat >/etc/apt/apt.conf.d/98-hardening <<'EOF'
 APT::Get::AllowUnauthenticated "false";
 Acquire::http::AllowRedirect "false";
@@ -54,7 +75,7 @@ netfilter-persistent save
 systemctl disable --now debug-shell.service wpa_supplicant speech-dispatcher bluez bluetooth.service apport.service avahi-daemon.socket avahi-daemon.service cups-browsed cups.socket cups.path cups.service nvmf-autoconnect.service nvmefc-boot-connections.service ModemManager.service usbmuxd.service usb_modeswitch@.service usb-gadget.target udisks2.service kexec.target systemd-kexec.service fprintd.service systemd-binfmt.service ctrl-alt-del.target rpcbind.target proc-sys-fs-binfmt_misc.mount proc-sys-fs-binfmt_misc.automount printer.target
 
 # PACKAGE RESTRICTIONS
-apt purge -y  zram* pci* pmount* acpi* anacron* avahi* bc bind9* dns* fastfetch fonts-noto* fprint* isc-dhcp* lxc* docker* podman* xen* bochs* uml* vagrant* libssh* ssh* openssh* acpi* samba* winbind* qemu* libvirt* virt* cron* avahi* cup* print* rsync* nftables* virtual* sane* rpc* bind* nfs* blue* pp* spee* espeak* mobile* wireless* bc perl inet* util-linux-locales tasksel* vim* os-prober* netcat* libssh*
+apt purge -y  zram* pci* pmount* acpi* anacron* avahi* bc bind9* dns* fastfetch fonts-noto* fprint* isc-dhcp* lxc* docker* podman* xen* bochs* uml* vagrant* libssh* ssh* openssh* acpi* samba* winbind* qemu* libvirt* virt* cron* avahi* cup* print* rsync* nftables* virtual* sane* rpc* bind* nfs* blue* pp* spee* espeak* mobile* wireless* bc perl inet* util-linux-locales tasksel* vim* os-prober* netcat* libssh* gcc* g++* gdb* lldb* strace* ltrace* as nasm yasm fasm build-essential automake autoconf libtool cmake ninja-build meson
 
 install -d /etc/apt/preferences.d
 cat >/etc/apt/preferences.d/deny-ssh.pref <<'EOF'
@@ -209,20 +230,167 @@ Pin-Priority: -1
 Package: nftables*
 Pin: release *
 Pin-Priority: -1
+
+Package: gcc*
+Pin: release *
+Pin-Priority: -1
+
+Package: g++*
+Pin: release *
+Pin-Priority: -1
+
+Package: gdb*
+Pin: release *
+Pin-Priority: -1
+
+Package: lldb*
+Pin: release *
+Pin-Priority: -1
+
+Package: strace*
+Pin: release *
+Pin-Priority: -1
+
+Package: ltrace*
+Pin: release *
+Pin-Priority: -1
+
+Package: build-essential*
+Pin: release *
+Pin-Priority: -1
+
+Package: automake*
+Pin: release *
+Pin-Priority: -1
+
+Package: autoconf*
+Pin: release *
+Pin-Priority: -1
+
+Package: cmake*
+Pin: release *
+Pin-Priority: -1
+
+Package: nasm*
+Pin: release *
+Pin-Priority: -1
+
+Package: yasm*
+Pin: release *
+Pin-Priority: -1
 EOF
 
 # INSTALL PACKAGES
-apt install -y apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra pamu2fcfg libpam-u2f rsyslog chrony libpam-tmpdir fail2ban needrestart apt-listchanges acct sysstat rkhunter chkrootkit debsums apt-show-versions unzip patch alsa-utils pipewire pipewire-audio-client-libraries pipewire-pulse wireplumber lynis macchanger unhide tcpd fonts-liberation extrepo gnome-brave-icon-theme breeze-gtk-theme bibata* mousepad xfce4 libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xserver-xorg xinit xserver-xorg-legacy xfce4-pulse* xfce4-whisk* opensnitch* python3-opensnitch*
+apt install -y apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra pamu2fcfg libpam-u2f rsyslog chrony libpam-tmpdir fail2ban needrestart apt-listchanges acct sysstat rkhunter chkrootkit debsums apt-show-versions unzip patch alsa-utils pipewire pipewire-audio-client-libraries pipewire-pulse wireplumber lynis macchanger unhide tcpd fonts-liberation extrepo gnome-brave-icon-theme breeze-gtk-theme bibata* mousepad xfce4 libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xserver-xorg xinit xserver-xorg-legacy xfce4-pulse* xfce4-whisk* opensnitch* python3-opensnitch* auditd audispd-plugins unattended-upgrades
 systemctl enable apparmor
 systemctl start apparmor
 aa-enforce /etc/apparmor.d/* 2>/dev/null || true
 
+# AUDITD CONFIGURATION
+cat >/etc/audit/rules.d/hardening.rules <<'EOF'
+# Delete all existing rules
+-D
+
+# Buffer size
+-b 8192
+
+# Failure mode (2 = panic on failure)
+-f 2
+
+# Audit changes to time
+-a always,exit -F arch=b64 -S adjtimex -S settimeofday -k time-change
+-a always,exit -F arch=b32 -S adjtimex -S settimeofday -S stime -k time-change
+-a always,exit -F arch=b64 -S clock_settime -k time-change
+-a always,exit -F arch=b32 -S clock_settime -k time-change
+-w /etc/localtime -p wa -k time-change
+
+# Audit identity/authentication events
+-w /etc/group -p wa -k identity
+-w /etc/passwd -p wa -k identity
+-w /etc/gshadow -p wa -k identity
+-w /etc/shadow -p wa -k identity
+-w /etc/security/opasswd -p wa -k identity
+
+# Audit PAM configuration
+-w /etc/pam.d/ -p wa -k pam
+-w /etc/nsswitch.conf -p wa -k identity
+
+# Audit login/logout events
+-w /var/log/faillog -p wa -k logins
+-w /var/log/lastlog -p wa -k logins
+-w /var/log/tallylog -p wa -k logins
+
+# Audit network environment
+-a always,exit -F arch=b64 -S sethostname -S setdomainname -k network
+-a always,exit -F arch=b32 -S sethostname -S setdomainname -k network
+-w /etc/hosts -p wa -k network
+-w /etc/network/ -p wa -k network
+
+# Audit AppArmor events
+-w /etc/apparmor/ -p wa -k apparmor
+-w /etc/apparmor.d/ -p wa -k apparmor
+
+# Audit kernel module loading
+-w /sbin/insmod -p x -k modules
+-w /sbin/rmmod -p x -k modules
+-w /sbin/modprobe -p x -k modules
+-a always,exit -F arch=b64 -S init_module -S delete_module -k modules
+
+# Audit file deletions
+-a always,exit -F arch=b64 -S unlink -S unlinkat -S rename -S renameat -k delete
+-a always,exit -F arch=b32 -S unlink -S unlinkat -S rename -S renameat -k delete
+
+# Audit sudo usage
+-w /etc/sudoers -p wa -k sudoers
+-w /etc/sudoers.d/ -p wa -k sudoers
+
+# Audit changes to system mandatory access controls
+-w /etc/selinux/ -p wa -k MAC-policy
+
+# Audit session initiation
+-w /var/run/utmp -p wa -k session
+-w /var/log/wtmp -p wa -k session
+-w /var/log/btmp -p wa -k session
+
+# Audit discretionary access control permission modifications
+-a always,exit -F arch=b64 -S chmod -S fchmod -S fchmodat -F auid>=1000 -F auid!=4294967295 -k perm_mod
+-a always,exit -F arch=b32 -S chmod -S fchmod -S fchmodat -F auid>=1000 -F auid!=4294967295 -k perm_mod
+-a always,exit -F arch=b64 -S chown -S fchown -S fchownat -S lchown -F auid>=1000 -F auid!=4294967295 -k perm_mod
+-a always,exit -F arch=b32 -S chown -S fchown -S fchownat -S lchown -F auid>=1000 -F auid!=4294967295 -k perm_mod
+-a always,exit -F arch=b64 -S setxattr -S lsetxattr -S fsetxattr -S removexattr -S lremovexattr -S fremovexattr -F auid>=1000 -F auid!=4294967295 -k perm_mod
+-a always,exit -F arch=b32 -S setxattr -S lsetxattr -S fsetxattr -S removexattr -S lremovexattr -S fremovexattr -F auid>=1000 -F auid!=4294967295 -k perm_mod
+
+# Audit privileged commands
+-a always,exit -F path=/usr/bin/sudo -F perm=x -F auid>=1000 -F auid!=4294967295 -k privileged
+-a always,exit -F path=/usr/bin/su -F perm=x -F auid>=1000 -F auid!=4294967295 -k privileged
+
+# Make config immutable
+-e 2
+EOF
+
+systemctl enable auditd
+systemctl start auditd
 
 # PAM/U2F
+echo "============================================"
+echo "CRITICAL: U2F KEY ENROLLMENT"
+echo "============================================"
+echo "Insert your U2F key and touch it when prompted."
+echo "If this fails, the system will be LOCKED OUT."
+echo "Press Enter to continue or Ctrl+C to abort..."
+read -r
 pamu2fcfg -u dev > /etc/conf
+if [ ! -s /etc/conf ]; then
+    echo "ERROR: U2F enrollment failed! Aborting to prevent lockout."
+    rm -f /etc/conf
+    exit 1
+fi
+echo "U2F enrollment successful. Key stored in /etc/conf"
 chmod 600 /etc/conf
 chown root:root /etc/conf
-chattr +i /etc/conf
+# Don't make immutable yet - let user test login first
+echo "WARNING: Test your U2F login before running the lockdown section!"
+echo "The file will be made immutable at the end of the script."
 
 cat >/etc/pam.d/chfn <<'EOF'
 #%PAM-1.0
@@ -356,7 +524,7 @@ EOF
 
 cat >/etc/pam.d/lightdm-greeter <<'EOF'
 #%PAM-1.0
-auth      requisite   pam_nologin
+auth      requisite   pam_nologin.so
 account   include     common-account
 password  include     pam_unix.so
 session   optional    pam_systemd.so
@@ -417,7 +585,27 @@ EOF
 chmod 0440 /etc/sudoers
 chmod 0440 /etc/sudoers.d
 
-# MISC HARDENING 
+# MAC ADDRESS RANDOMIZATION
+cat >/etc/systemd/system/macspoof.service <<'EOF'
+[Unit]
+Description=Randomize MAC address
+Wants=network-pre.target
+Before=network-pre.target
+BindsTo=sys-subsystem-net-devices-eth0.device
+After=sys-subsystem-net-devices-eth0.device
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/macchanger -r eth0
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl enable macspoof.service
+
+# MISC HARDENING
 echo "/bin/bash" > /etc/shells
 passwd -l root
 echo "needs_root_rights=no" >> /etc/X11/Xwrapper.config
@@ -477,7 +665,7 @@ cat > /etc/security/access.conf << 'EOF'
 EOF
 
 # GRUB
-sed -i 's|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT="slab_nomerge init_on_alloc=1 init_on_free=1 random.trust_cpu=off random.trust_bootloader=off pti=on page_alloc.shuffle=1 spectre_v2=on spec_store_bypass_disable=on l1tf=full mds=full tsx=off tsx_async_abort=full retbleed=auto mitigations=auto vsyscall=none kvm.nx_huge_pages=force quiet ipv6.disable=1 loglevel=0 apparmor=1 security=apparmor"|' /etc/default/grub
+sed -i 's|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT="slab_nomerge init_on_alloc=1 init_on_free=1 page_poison=1 random.trust_cpu=off random.trust_bootloader=off pti=on page_alloc.shuffle=1 spectre_v2=on spec_store_bypass_disable=on l1tf=full mds=full tsx=off tsx_async_abort=full retbleed=auto mitigations=auto vsyscall=none kvm.nx_huge_pages=force iommu=force intel_iommu=on amd_iommu=on efi=disable_early_pci_dma module.sig_enforce=1 lockdown=confidentiality quiet ipv6.disable=1 loglevel=0 apparmor=1 security=apparmor"|' /etc/default/grub
 update-grub
 chown root:root /etc/default/grub
 chmod 640 /etc/default/grub
@@ -501,6 +689,8 @@ kernel.randomize_va_space = 2
 kernel.sysrq = 0
 kernel.unprivileged_bpf_disabled = 1
 kernel.unprivileged_userns_clone = 1
+kernel.yama.ptrace_scope = 2
+kernel.modules_disabled = 1
 net.core.bpf_jit_harden = 2
 net.core.default_qdisc = fq
 net.ipv4.conf.all.accept_local=0
@@ -859,7 +1049,7 @@ chattr +i /etc/passwd
 chattr +i /etc/passwd-
 chattr +i /etc/gshadow-
 chattr +i /etc/gshadow
-chattr -R +i chattr -R +i /etc/sudoers*
+chattr -R +i /etc/sudoers*
 chattr +i /root/.bashrc
 chattr +i /etc/shadow
 chattr +i /etc/shadow-
@@ -872,24 +1062,76 @@ chattr +i /etc/sudoers
 chattr -R +i /etc/security
 chattr -R +i /etc/iptables
 chattr -R +i /etc/ssh
+chattr +i /etc/conf
+chattr -R +i /etc/audit
 
+# INTEGRITY CHECKING
+echo "============================================"
+echo "CONFIGURING ROOTKIT DETECTION"
+echo "============================================"
+
+# Configure rkhunter
+sed -i 's/^UPDATE_MIRRORS=.*/UPDATE_MIRRORS=1/' /etc/rkhunter.conf
+sed -i 's/^MIRRORS_MODE=.*/MIRRORS_MODE=0/' /etc/rkhunter.conf
+sed -i 's/^WEB_CMD=.*/WEB_CMD=""/' /etc/rkhunter.conf
+echo "ALLOWHIDDENDIR=/dev/.lxc" >> /etc/rkhunter.conf
+echo "ALLOWHIDDENDIR=/dev/.udev" >> /etc/rkhunter.conf
+echo "ALLOWHIDDENDIR=/dev/.static" >> /etc/rkhunter.conf
+echo "ALLOWHIDDENDIR=/dev/.initramfs" >> /etc/rkhunter.conf
+
+# Initialize rkhunter database
+rkhunter --update 2>/dev/null || true
+rkhunter --propupd
+
+# Create debsums verification script
+cat >/usr/local/bin/verify-system.sh <<'EOF'
+#!/bin/bash
+echo "Running system integrity checks..."
+echo "=================================="
+echo ""
+echo "Checking package file integrity with debsums..."
+debsums --changed --silent
+echo ""
+echo "Checking for rootkits with rkhunter..."
+rkhunter --check --skip-keypress --report-warnings-only
+echo ""
+echo "Checking for rootkits with chkrootkit..."
+chkrootkit -q
+echo ""
+echo "System integrity check complete."
+EOF
+chmod 755 /usr/local/bin/verify-system.sh
+
+echo "Run 'sudo /usr/local/bin/verify-system.sh' to check system integrity"
 
 # MULLVAD VPN
-!apt! install -y git rsync curl wget dirmngr apt-transport-https ca-certificates lsb-release gnupg gpg
+echo "============================================"
+echo "MULLVAD VPN SETUP"
+echo "============================================"
+apt install -y git rsync curl wget dirmngr apt-transport-https ca-certificates lsb-release gnupg gpg
 curl -fsSLo /usr/share/keyrings/mullvad-keyring.asc https://repository.mullvad.net/deb/mullvad-keyring.asc
 echo "deb [signed-by=/usr/share/keyrings/mullvad-keyring.asc arch=$( dpkg --print-architecture )] https://repository.mullvad.net/deb/beta beta main" | tee /etc/apt/sources.list.d/mullvad.list
 apt update
-apt install mullvad-vpn mullvad-browser
-mullvad account login
-mullvad relay set tunnel wireguard --port 51820
-mullvad relay set tunnel wireguard --ip-version ipv4
-mullvad relay set tunnel-protocol wireguard
-mullvad relay set location us nyc
-mullvad tunnel set wireguard --daita on
-mullvad obfuscation set mode off
-mullvad auto-connect set on
-mullvad connect
+apt install -y mullvad-vpn mullvad-browser
+echo ""
+echo "IMPORTANT: You must configure Mullvad manually after installation:"
+echo "1. Run: mullvad account login <YOUR_ACCOUNT_NUMBER>"
+echo "2. Or complete the setup after the script finishes"
+echo ""
+echo "Pre-configuring Mullvad settings (will apply after login)..."
+mullvad relay set tunnel wireguard --port 51820 2>/dev/null || true
+mullvad relay set tunnel wireguard --ip-version ipv4 2>/dev/null || true
+mullvad relay set tunnel-protocol wireguard 2>/dev/null || true
+mullvad relay set location us nyc 2>/dev/null || true
+mullvad tunnel set wireguard --daita on 2>/dev/null || true
+mullvad obfuscation set mode off 2>/dev/null || true
+mullvad auto-connect set on 2>/dev/null || true
+echo "Mullvad pre-configured. Remember to login and connect manually!"
 
+# VPN KILLSWITCH - Force all traffic through Mullvad
+echo "============================================"
+echo "CONFIGURING VPN KILLSWITCH"
+echo "============================================"
 iptables -F
 iptables -X
 iptables -Z
@@ -923,3 +1165,44 @@ iptables-save   > /etc/iptables/rules.v4
 ip6tables-save  > /etc/iptables/rules.v6
 netfilter-persistent save
 
+# FINAL WARNINGS AND COMPLETION
+echo ""
+echo "============================================"
+echo "HARDENING SCRIPT COMPLETED"
+echo "============================================"
+echo ""
+echo "CRITICAL POST-INSTALLATION STEPS:"
+echo "1. Login to Mullvad VPN:"
+echo "   mullvad account login <YOUR_ACCOUNT_NUMBER>"
+echo "   mullvad connect"
+echo ""
+echo "2. REBOOT THE SYSTEM to apply all changes"
+echo ""
+echo "3. After reboot, verify U2F login works BEFORE proceeding"
+echo ""
+echo "4. Test MAC randomization:"
+echo "   ip link show eth0"
+echo ""
+echo "5. Verify VPN killswitch:"
+echo "   curl https://am.i.mullvad.net/connected"
+echo ""
+echo "6. Run integrity check:"
+echo "   sudo /usr/local/bin/verify-system.sh"
+echo ""
+echo "7. Review audit logs:"
+echo "   sudo ausearch -m USER_LOGIN"
+echo ""
+echo "SECURITY NOTES:"
+echo "- Root account is LOCKED (passwd -l root)"
+echo "- All authentication requires U2F hardware key"
+echo "- All network traffic MUST go through Mullvad VPN"
+echo "- Compilers and debuggers are BLOCKED"
+echo "- Most kernel modules are BLACKLISTED"
+echo "- System files are IMMUTABLE (chattr +i)"
+echo "- Automatic security updates are ENABLED"
+echo ""
+echo "To unlock immutable files: chattr -i <file>"
+echo "To view audit logs: ausearch -k <key>"
+echo "To check firewall: iptables -L -v -n"
+echo ""
+echo "============================================"

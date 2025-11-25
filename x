@@ -281,10 +281,109 @@ Pin-Priority: -1
 EOF
 
 # INSTALL PACKAGES
-apt install -y apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra pamu2fcfg libpam-u2f rsyslog chrony libpam-tmpdir fail2ban needrestart apt-listchanges acct sysstat rkhunter chkrootkit debsums apt-show-versions unzip patch alsa-utils pipewire pipewire-audio-client-libraries pipewire-pulse wireplumber lynis macchanger unhide tcpd fonts-liberation extrepo gnome-brave-icon-theme breeze-gtk-theme bibata* mousepad xfce4 libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xserver-xorg xinit xserver-xorg-legacy xfce4-pulse* xfce4-whisk* opensnitch* python3-opensnitch* auditd audispd-plugins unattended-upgrades
+apt install -y apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra pamu2fcfg libpam-u2f rsyslog chrony libpam-tmpdir fail2ban needrestart apt-listchanges acct sysstat rkhunter chkrootkit debsums apt-show-versions unzip patch alsa-utils pipewire pipewire-audio-client-libraries pipewire-pulse wireplumber lynis macchanger unhide tcpd fonts-liberation extrepo gnome-brave-icon-theme breeze-gtk-theme bibata* mousepad xfce4 libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xserver-xorg xinit xserver-xorg-legacy xfce4-pulse* xfce4-whisk* opensnitch* python3-opensnitch* auditd audispd-plugins unattended-upgrades aide aide-common usbguard
 systemctl enable apparmor
 systemctl start apparmor
 aa-enforce /etc/apparmor.d/* 2>/dev/null || true
+
+# OPENSNITCH CONFIGURATION
+echo "============================================"
+echo "CONFIGURING OPENSNITCH APPLICATION FIREWALL"
+echo "============================================"
+systemctl enable opensnitch
+systemctl start opensnitch
+
+# Install Respect-My-Internet blocklists
+echo "Installing Respect-My-Internet blocklists..."
+cd /tmp
+git clone --depth 1 https://github.com/DXC-0/Respect-My-Internet.git
+cd Respect-My-Internet
+
+# Create OpenSnitch directories
+mkdir -p /etc/opensnitchd/{blocklist,ip,regex,rules}
+
+# Copy blocklists
+if [ -d "blocklist" ]; then
+    cp -r blocklist/* /etc/opensnitchd/blocklist/ 2>/dev/null || true
+fi
+if [ -d "ip" ]; then
+    cp -r ip/* /etc/opensnitchd/ip/ 2>/dev/null || true
+fi
+if [ -d "regex" ]; then
+    cp -r regex/* /etc/opensnitchd/regex/ 2>/dev/null || true
+fi
+if [ -d "rules" ]; then
+    cp -r rules/* /etc/opensnitchd/rules/ 2>/dev/null || true
+fi
+
+# Set proper permissions
+chown -R root:root /etc/opensnitchd
+chmod -R 600 /etc/opensnitchd
+
+# Create default-deny rule for system security
+cat > /etc/opensnitchd/rules/00-default-deny.json <<'EOF'
+{
+  "created": "2025-01-01T00:00:00.000000000Z",
+  "updated": "2025-01-01T00:00:00.000000000Z",
+  "name": "default-deny-outbound",
+  "enabled": true,
+  "precedence": false,
+  "action": "deny",
+  "duration": "always",
+  "operator": {
+    "type": "simple",
+    "sensitive": false,
+    "operand": "dest.network",
+    "data": ""
+  }
+}
+EOF
+
+# Create allow rule for VPN interface
+cat > /etc/opensnitchd/rules/01-allow-vpn.json <<'EOF'
+{
+  "created": "2025-01-01T00:00:00.000000000Z",
+  "updated": "2025-01-01T00:00:00.000000000Z",
+  "name": "allow-vpn-interface",
+  "enabled": true,
+  "precedence": true,
+  "action": "allow",
+  "duration": "always",
+  "operator": {
+    "type": "simple",
+    "sensitive": false,
+    "operand": "dest.network.interface",
+    "data": "wg0-mullvad"
+  }
+}
+EOF
+
+# Create allow rule for localhost
+cat > /etc/opensnitchd/rules/02-allow-localhost.json <<'EOF'
+{
+  "created": "2025-01-01T00:00:00.000000000Z",
+  "updated": "2025-01-01T00:00:00.000000000Z",
+  "name": "allow-localhost",
+  "enabled": true,
+  "precedence": true,
+  "action": "allow",
+  "duration": "always",
+  "operator": {
+    "type": "simple",
+    "sensitive": false,
+    "operand": "dest.ip",
+    "data": "127.0.0.1"
+  }
+}
+EOF
+
+# Restart OpenSnitch to load new rules
+systemctl restart opensnitch
+
+echo "OpenSnitch configured with Respect-My-Internet blocklists"
+echo "Rules installed: blocklists, IP filters, regex patterns"
+cd /tmp
+rm -rf Respect-My-Internet
 
 # AUDITD CONFIGURATION
 cat >/etc/audit/rules.d/hardening.rules <<'EOF'
@@ -391,6 +490,75 @@ chown root:root /etc/conf
 # Don't make immutable yet - let user test login first
 echo "WARNING: Test your U2F login before running the lockdown section!"
 echo "The file will be made immutable at the end of the script."
+
+# USBGUARD CONFIGURATION
+echo "============================================"
+echo "CONFIGURING USB DEVICE WHITELISTING"
+echo "============================================"
+# Generate policy based on currently connected devices (including U2F key)
+mkdir -p /etc/usbguard
+usbguard generate-policy > /etc/usbguard/rules.conf
+
+# Set default policies
+cat > /etc/usbguard/usbguard-daemon.conf <<'EOF'
+# USBGuard daemon configuration
+
+# Rule file path
+RuleFile=/etc/usbguard/rules.conf
+
+# Implicit policy target
+ImplicitPolicyTarget=block
+
+# Present device policy
+PresentDevicePolicy=apply-policy
+
+# Present controller policy
+PresentControllerPolicy=keep
+
+# Inserted device policy
+InsertedDevicePolicy=block
+
+# Restore controller device state
+RestoreControllerDeviceState=false
+
+# Device manager backend
+DeviceManagerBackend=uevent
+
+# IPC access control
+IPCAllowedUsers=root
+IPCAllowedGroups=root
+
+# IPC access control files
+IPCAccessControlFiles=/etc/usbguard/IPCAccessControl.d/
+
+# Device rules
+DeviceRulesWithPort=false
+
+# Audit backend
+AuditBackend=LinuxAudit
+
+# Hide personally identifiable information
+HidePII=true
+EOF
+
+# Set permissions
+chmod 600 /etc/usbguard/rules.conf
+chmod 600 /etc/usbguard/usbguard-daemon.conf
+chown -R root:root /etc/usbguard
+
+# Enable USBGuard
+systemctl enable usbguard
+systemctl start usbguard
+
+echo "USBGuard configured:"
+echo "- Currently connected devices (including U2F key): ALLOWED"
+echo "- All other USB devices: BLOCKED"
+echo "- This prevents BadUSB attacks and unauthorized USB access"
+echo ""
+echo "To allow a new USB device:"
+echo "  usbguard list-devices"
+echo "  usbguard allow-device <device-id>"
+echo "  usbguard generate-policy >> /etc/usbguard/rules.conf"
 
 cat >/etc/pam.d/chfn <<'EOF'
 #%PAM-1.0
@@ -585,6 +753,25 @@ EOF
 chmod 0440 /etc/sudoers
 chmod 0440 /etc/sudoers.d
 
+# SWAP SECURITY
+echo "============================================"
+echo "DISABLING SWAP FOR MEMORY SECURITY"
+echo "============================================"
+# Disable swap to prevent memory secrets from being written to disk
+swapoff -a
+# Remove swap entries from fstab (will be added back later if user wants encrypted swap)
+sed -i '/swap/d' /etc/fstab
+# Add note about swap
+cat >> /root/SECURITY_NOTES.txt <<'EOF'
+SWAP: Disabled for security
+- Memory contents never written to disk
+- Prevents hibernation attacks and cold boot attacks
+- If you need swap, configure encrypted swap manually:
+  cryptsetup luksFormat /dev/mapper/lvg-swap
+  echo "swap /dev/mapper/lvg-swap /dev/urandom swap,cipher=aes-xts-plain64,size=512" >> /etc/crypttab
+EOF
+echo "Swap disabled. Memory contents will never touch disk."
+
 # MAC ADDRESS RANDOMIZATION
 cat >/etc/systemd/system/macspoof.service <<'EOF'
 [Unit]
@@ -739,6 +926,10 @@ user.max_user_namespaces = 0
 vm.max_map_count = 262144
 vm.mmap_min_addr = 65536
 vm.unprivileged_userfaultfd = 0
+vm.swappiness = 0
+vm.overcommit_memory = 2
+vm.overcommit_ratio = 100
+vm.panic_on_oom = 1
 EOF
 sysctl --system
 
@@ -1064,11 +1255,104 @@ chattr -R +i /etc/iptables
 chattr -R +i /etc/ssh
 chattr +i /etc/conf
 chattr -R +i /etc/audit
+chattr -R +i /etc/opensnitchd
+chattr +i /etc/aide/aide.conf
+chattr +i /var/lib/aide/aide.db
+chattr -R +i /etc/usbguard
 
 # INTEGRITY CHECKING
 echo "============================================"
-echo "CONFIGURING ROOTKIT DETECTION"
+echo "CONFIGURING FILESYSTEM INTEGRITY MONITORING"
 echo "============================================"
+
+# Configure AIDE
+cat > /etc/aide/aide.conf <<'EOF'
+# AIDE configuration for maximum security monitoring
+
+# Database locations
+database=file:/var/lib/aide/aide.db
+database_out=file:/var/lib/aide/aide.db.new
+database_new=file:/var/lib/aide/aide.db.new
+
+# Report settings
+gzip_dbout=yes
+verbose=5
+report_url=stdout
+report_url=file:/var/log/aide/aide.log
+
+# Rule definitions
+All = p+i+n+u+g+s+b+m+c+md5+sha256+sha512
+Binaries = p+i+n+u+g+s+b+m+c+md5+sha256+sha512
+Configs = p+i+n+u+g+s+b+m+c+md5+sha256+sha512
+Logs = p+i+n+u+g
+Databases = p+i+n+u+g+s+b+m+c+md5+sha256+sha512
+
+# Directories to monitor
+/boot          Binaries
+/bin           Binaries
+/sbin          Binaries
+/usr/bin       Binaries
+/usr/sbin      Binaries
+/usr/local     Binaries
+/lib           Binaries
+/lib64         Binaries
+/usr/lib       Binaries
+/usr/lib64     Binaries
+
+# Configuration files
+/etc           Configs
+!/etc/mtab
+!/etc/aide/aide.db
+!/etc/aide/aide.db.new
+
+# Root home
+/root          Configs
+
+# Critical system files
+/var/lib/dpkg  Databases
+/var/lib/apt   Databases
+
+# Logs (less strict monitoring)
+!/var/log/aide
+!/var/log/journal
+!/var/log/audit
+
+# Exclude volatile directories
+!/tmp
+!/var/tmp
+!/var/cache
+!/var/run
+!/run
+!/proc
+!/sys
+!/dev
+!/home/*/\.cache
+EOF
+
+mkdir -p /var/log/aide
+chown root:root /etc/aide/aide.conf
+chmod 600 /etc/aide/aide.conf
+
+# Initialize AIDE database (this takes time)
+echo "Initializing AIDE database (this may take several minutes)..."
+aideinit
+if [ -f /var/lib/aide/aide.db.new ]; then
+    mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
+    echo "AIDE database initialized successfully"
+else
+    echo "WARNING: AIDE database initialization may have failed"
+fi
+
+# Create daily AIDE check cronjob
+cat > /etc/cron.daily/aide-check <<'EOF'
+#!/bin/bash
+# Daily AIDE integrity check
+/usr/bin/aide --check | tee -a /var/log/aide/daily-$(date +\%Y\%m\%d).log
+if [ ${PIPESTATUS[0]} -ne 0 ]; then
+    echo "AIDE detected filesystem changes on $(hostname)" | mail -s "AIDE Alert" root
+fi
+EOF
+chmod 755 /etc/cron.daily/aide-check
 
 # Configure rkhunter
 sed -i 's/^UPDATE_MIRRORS=.*/UPDATE_MIRRORS=1/' /etc/rkhunter.conf
@@ -1083,26 +1367,35 @@ echo "ALLOWHIDDENDIR=/dev/.initramfs" >> /etc/rkhunter.conf
 rkhunter --update 2>/dev/null || true
 rkhunter --propupd
 
-# Create debsums verification script
+# Create comprehensive verification script
 cat >/usr/local/bin/verify-system.sh <<'EOF'
 #!/bin/bash
-echo "Running system integrity checks..."
-echo "=================================="
+echo "Running comprehensive system integrity checks..."
+echo "================================================"
 echo ""
-echo "Checking package file integrity with debsums..."
+echo "[1/4] Checking filesystem integrity with AIDE..."
+aide --check
+echo ""
+echo "[2/4] Checking package file integrity with debsums..."
 debsums --changed --silent
 echo ""
-echo "Checking for rootkits with rkhunter..."
+echo "[3/4] Checking for rootkits with rkhunter..."
 rkhunter --check --skip-keypress --report-warnings-only
 echo ""
-echo "Checking for rootkits with chkrootkit..."
+echo "[4/4] Checking for rootkits with chkrootkit..."
 chkrootkit -q
 echo ""
+echo "================================================"
 echo "System integrity check complete."
+echo "Review logs in /var/log/aide/ for detailed AIDE results"
 EOF
 chmod 755 /usr/local/bin/verify-system.sh
 
-echo "Run 'sudo /usr/local/bin/verify-system.sh' to check system integrity"
+echo "Integrity monitoring configured:"
+echo "- AIDE: Daily automated checks"
+echo "- rkhunter: Rootkit detection"
+echo "- debsums: Package integrity"
+echo "Run 'sudo /usr/local/bin/verify-system.sh' for manual verification"
 
 # MULLVAD VPN
 echo "============================================"
@@ -1192,17 +1485,28 @@ echo ""
 echo "7. Review audit logs:"
 echo "   sudo ausearch -m USER_LOGIN"
 echo ""
-echo "SECURITY NOTES:"
+echo "SECURITY FEATURES ENABLED:"
 echo "- Root account is LOCKED (passwd -l root)"
 echo "- All authentication requires U2F hardware key"
 echo "- All network traffic MUST go through Mullvad VPN"
+echo "- OpenSnitch application firewall with Respect-My-Internet blocklists"
+echo "- USBGuard blocking all USB devices except whitelisted (U2F key)"
+echo "- AIDE filesystem integrity monitoring (daily automated checks)"
+echo "- Auditd security event logging"
 echo "- Compilers and debuggers are BLOCKED"
+echo "- Swap is DISABLED (no memory written to disk)"
 echo "- Most kernel modules are BLACKLISTED"
 echo "- System files are IMMUTABLE (chattr +i)"
 echo "- Automatic security updates are ENABLED"
+echo "- MAC address randomization on boot"
 echo ""
-echo "To unlock immutable files: chattr -i <file>"
-echo "To view audit logs: ausearch -k <key>"
-echo "To check firewall: iptables -L -v -n"
+echo "USEFUL COMMANDS:"
+echo "- Unlock immutable files: chattr -i <file>"
+echo "- View audit logs: ausearch -k <key>"
+echo "- Check firewall: iptables -L -v -n"
+echo "- Check USB devices: usbguard list-devices"
+echo "- Check OpenSnitch rules: ls /etc/opensnitchd/rules/"
+echo "- Run integrity check: /usr/local/bin/verify-system.sh"
+echo "- View AIDE reports: ls /var/log/aide/"
 echo ""
 echo "============================================"

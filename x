@@ -281,7 +281,7 @@ Pin-Priority: -1
 EOF
 
 # INSTALL PACKAGES
-apt install -y apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra pamu2fcfg libpam-u2f rsyslog chrony libpam-tmpdir fail2ban needrestart apt-listchanges acct sysstat rkhunter chkrootkit debsums apt-show-versions unzip patch alsa-utils pipewire pipewire-audio-client-libraries pipewire-pulse wireplumber lynis macchanger unhide tcpd fonts-liberation extrepo gnome-brave-icon-theme breeze-gtk-theme bibata* mousepad xfce4 libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xserver-xorg xinit xserver-xorg-legacy xfce4-pulse* xfce4-whisk* opensnitch* python3-opensnitch* auditd audispd-plugins unattended-upgrades aide aide-common usbguard dnscrypt-proxy
+apt install -y apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra pamu2fcfg libpam-u2f rsyslog chrony libpam-tmpdir fail2ban needrestart apt-listchanges acct sysstat rkhunter chkrootkit debsums apt-show-versions unzip patch alsa-utils pipewire pipewire-audio-client-libraries pipewire-pulse wireplumber lynis macchanger unhide tcpd fonts-liberation extrepo gnome-brave-icon-theme breeze-gtk-theme bibata* mousepad xfce4 libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xserver-xorg xinit xserver-xorg-legacy xfce4-pulse* xfce4-whisk* opensnitch* python3-opensnitch* auditd audispd-plugins unattended-upgrades aide aide-common usbguard
 systemctl enable apparmor
 systemctl start apparmor
 aa-enforce /etc/apparmor.d/* 2>/dev/null || true
@@ -1259,7 +1259,6 @@ chattr -R +i /etc/opensnitchd
 chattr +i /etc/aide/aide.conf
 chattr +i /var/lib/aide/aide.db
 chattr -R +i /etc/usbguard
-chattr +i /etc/dnscrypt-proxy/dnscrypt-proxy.toml
 
 # INTEGRITY CHECKING
 echo "============================================"
@@ -1400,87 +1399,44 @@ echo "Run 'sudo /usr/local/bin/verify-system.sh' for manual verification"
 
 # DNS SECURITY
 echo "============================================"
-echo "CONFIGURING DNS-OVER-HTTPS"
+echo "CONFIGURING DNS FOR MULLVAD VPN"
 echo "============================================"
 
-# Configure dnscrypt-proxy for DNS-over-HTTPS
-cat > /etc/dnscrypt-proxy/dnscrypt-proxy.toml <<'EOF'
-# DNS-over-HTTPS configuration for Mullvad VPN
-
-listen_addresses = ['127.0.0.1:53']
-max_clients = 250
-ipv4_servers = true
-ipv6_servers = false
-dnscrypt_servers = false
-doh_servers = true
-require_dnssec = true
-require_nolog = true
-require_nofilter = false
-force_tcp = false
-timeout = 5000
-keepalive = 30
-cert_refresh_delay = 240
-bootstrap_resolvers = ['9.9.9.9:53']
-ignore_system_dns = true
-netprobe_timeout = 60
-netprobe_address = '9.9.9.9:53'
-log_level = 2
-use_syslog = true
-
-# Mullvad DNS servers (will work through VPN)
-server_names = ['cloudflare', 'cloudflare-security', 'quad9-dnscrypt-ip4-nofilter-pri']
-
-[query_log]
-  file = '/var/log/dnscrypt-proxy/query.log'
-  format = 'tsv'
-
-[nx_log]
-  file = '/var/log/dnscrypt-proxy/nx.log'
-  format = 'tsv'
-
-[blocked_names]
-  blocked_names_file = '/etc/dnscrypt-proxy/blocked-names.txt'
-
-[blocked_ips]
-  blocked_ips_file = '/etc/dnscrypt-proxy/blocked-ips.txt'
-
-[cache]
-  cache = true
-  cache_size = 4096
-  cache_min_ttl = 2400
-  cache_max_ttl = 86400
-  cache_neg_min_ttl = 60
-  cache_neg_max_ttl = 600
-EOF
-
-# Create log directory
-mkdir -p /var/log/dnscrypt-proxy
-
-# Create empty blocklist files
-touch /etc/dnscrypt-proxy/blocked-names.txt
-touch /etc/dnscrypt-proxy/blocked-ips.txt
-
-# Disable systemd-resolved (conflicts with dnscrypt-proxy)
+# Disable systemd-resolved (conflicts with Mullvad DNS)
 systemctl disable systemd-resolved 2>/dev/null || true
 systemctl stop systemd-resolved 2>/dev/null || true
 
-# Configure resolv.conf to use dnscrypt-proxy
+# Create systemd service to configure DNS after VPN connects
+cat > /etc/systemd/system/mullvad-dns.service <<'EOF'
+[Unit]
+Description=Configure DNS for Mullvad VPN
+After=network-online.target mullvad-daemon.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/bash -c 'chattr -i /etc/resolv.conf; echo "nameserver 10.64.0.1" > /etc/resolv.conf; echo "options edns0" >> /etc/resolv.conf; chattr +i /etc/resolv.conf'
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Create temporary resolv.conf (will be updated after Mullvad connects)
 cat > /etc/resolv.conf <<'EOF'
-nameserver 127.0.0.1
+# Temporary DNS - will be updated to Mullvad DNS (10.64.0.1) after VPN connection
+nameserver 1.1.1.1
 options edns0
 EOF
-chattr +i /etc/resolv.conf
 
-# Enable and start dnscrypt-proxy
-systemctl enable dnscrypt-proxy
-systemctl restart dnscrypt-proxy
-
-echo "DNS-over-HTTPS configured:"
-echo "- All DNS queries encrypted via DNS-over-HTTPS"
-echo "- Using trusted resolvers (Cloudflare, Quad9)"
-echo "- DNSSEC validation enabled"
-echo "- DNS query logging at /var/log/dnscrypt-proxy/"
-echo "- resolv.conf locked to prevent tampering"
+echo "DNS configuration prepared:"
+echo "- systemd-resolved disabled (conflicts with Mullvad)"
+echo "- resolv.conf will use Mullvad DNS (10.64.0.1) after VPN connects"
+echo "- DNS already encrypted via WireGuard tunnel (no need for DoH)"
+echo "- Mullvad's DNS blocking features will work correctly"
+echo ""
+echo "NOTE: After connecting to Mullvad, run: sudo systemctl start mullvad-dns.service"
+echo "      This will lock DNS to Mullvad's encrypted DNS servers"
 
 # MULLVAD VPN
 echo "============================================"
@@ -1611,10 +1567,6 @@ iptables -A OUTPUT -o lo -j ACCEPT
 
 # Validation checks
 iptables -A OUTPUT -j VALID_CHECK
-
-# Allow DNS to dnscrypt-proxy (localhost:53)
-iptables -A OUTPUT -d 127.0.0.1 -p udp --dport 53 -j ACCEPT
-iptables -A OUTPUT -d 127.0.0.1 -p tcp --dport 53 -j ACCEPT
 
 # Allow established connections
 iptables -A OUTPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT

@@ -506,49 +506,34 @@ kernel.unprivileged_userns_clone = 1
 net.core.bpf_jit_harden = 2
 net.core.default_qdisc = fq
 net.ipv4.conf.all.accept_local=0
-net.ipv4.conf.*.accept_local=0
 net.ipv4.conf.default.accept_local=0
 net.ipv4.conf.all.accept_redirects=0
-net.ipv4.conf.*.accept_redirects=0
 net.ipv4.conf.default.accept_redirects=0
 net.ipv4.conf.all.accept_source_route=0
-net.ipv4.conf.*.accept_source_route=0
 net.ipv4.conf.default.accept_source_route=0
 net.ipv4.conf.all.arp_evict_nocarrier=1
-net.ipv4.conf.*.arp_evict_nocarrier=1
 net.ipv4.conf.default.arp_evict_nocarrier=1
 net.ipv4.conf.all.arp_filter=1
-net.ipv4.conf.*.arp_filter=1
 net.ipv4.conf.default.arp_filter=1
 net.ipv4.conf.all.arp_ignore=2
-net.ipv4.conf.*.arp_ignore=2
 net.ipv4.conf.default.arp_ignore=2
 net.ipv4.conf.all.drop_gratuitous_arp=1
-net.ipv4.conf.*.drop_gratuitous_arp=1
 net.ipv4.conf.default.drop_gratuitous_arp=1
 net.ipv4.conf.all.shared_media=0
-net.ipv4.conf.*.shared_media=0
 net.ipv4.conf.default.shared_media=0
 net.ipv4.conf.all.forwarding=0
-net.ipv4.conf.*.forwarding=0
 net.ipv4.conf.default.forwarding=0
 net.ipv4.conf.all.mc.forwarding=0
-net.ipv4.conf.*.mc.forwarding=0
 net.ipv4.conf.default.mc.forwarding=0
 net.ipv4.conf.all.route_localnet=0
-net.ipv4.conf.*.route_localnet=0
 net.ipv4.conf.default.route_localnet=0
 net.ipv4.conf.all.rp_filter=1
-net.ipv4.conf.*.rp_filter=1
 net.ipv4.conf.default.rp_filter=1
 net.ipv4.conf.all.secure_redirects=0
-net.ipv4.conf.*.secure_redirects=0
 net.ipv4.conf.default.secure_redirects=0
 net.ipv4.conf.all.send_redirects=0
-net.ipv4.conf.*.send_redirects=0
 net.ipv4.conf.default.send_redirects=0
 net.ipv4.conf.all.shared_media=0
-net.ipv4.conf.*.shared_media=0
 net.ipv4.conf.default.shared_media=0
 net.ipv6.conf.all.disable_ipv6=1
 net.ipv6.conf.*.disable_ipv6=1
@@ -761,7 +746,6 @@ EOF
 
 # UNNECESSARY ACCOUNTS/GROUPS
 groupdel _ssh --force
-groupdel bluetooth --force
 groupdel irc --force
 groupdel kvm --force
 groupdel voice --force

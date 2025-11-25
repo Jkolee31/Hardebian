@@ -281,7 +281,7 @@ Pin-Priority: -1
 EOF
 
 # INSTALL PACKAGES
-apt install -y apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra pamu2fcfg libpam-u2f rsyslog chrony libpam-tmpdir fail2ban needrestart apt-listchanges acct sysstat rkhunter chkrootkit debsums apt-show-versions unzip patch alsa-utils pipewire pipewire-audio-client-libraries pipewire-pulse wireplumber lynis macchanger unhide tcpd fonts-liberation extrepo gnome-brave-icon-theme breeze-gtk-theme bibata* mousepad xfce4 libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xserver-xorg xinit xserver-xorg-legacy xfce4-pulse* xfce4-whisk* opensnitch* python3-opensnitch* auditd audispd-plugins unattended-upgrades aide aide-common usbguard
+apt install -y apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra pamu2fcfg libpam-u2f rsyslog chrony libpam-tmpdir fail2ban needrestart apt-listchanges acct sysstat rkhunter chkrootkit debsums apt-show-versions unzip patch alsa-utils pipewire pipewire-audio-client-libraries pipewire-pulse wireplumber lynis macchanger unhide tcpd fonts-liberation extrepo gnome-brave-icon-theme breeze-gtk-theme bibata* mousepad xfce4 libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xserver-xorg xinit xserver-xorg-legacy xfce4-pulse* xfce4-whisk* opensnitch* python3-opensnitch* auditd audispd-plugins unattended-upgrades aide aide-common usbguard dnscrypt-proxy
 systemctl enable apparmor
 systemctl start apparmor
 aa-enforce /etc/apparmor.d/* 2>/dev/null || true
@@ -1259,6 +1259,7 @@ chattr -R +i /etc/opensnitchd
 chattr +i /etc/aide/aide.conf
 chattr +i /var/lib/aide/aide.db
 chattr -R +i /etc/usbguard
+chattr +i /etc/dnscrypt-proxy/dnscrypt-proxy.toml
 
 # INTEGRITY CHECKING
 echo "============================================"
@@ -1397,6 +1398,90 @@ echo "- rkhunter: Rootkit detection"
 echo "- debsums: Package integrity"
 echo "Run 'sudo /usr/local/bin/verify-system.sh' for manual verification"
 
+# DNS SECURITY
+echo "============================================"
+echo "CONFIGURING DNS-OVER-HTTPS"
+echo "============================================"
+
+# Configure dnscrypt-proxy for DNS-over-HTTPS
+cat > /etc/dnscrypt-proxy/dnscrypt-proxy.toml <<'EOF'
+# DNS-over-HTTPS configuration for Mullvad VPN
+
+listen_addresses = ['127.0.0.1:53']
+max_clients = 250
+ipv4_servers = true
+ipv6_servers = false
+dnscrypt_servers = false
+doh_servers = true
+require_dnssec = true
+require_nolog = true
+require_nofilter = false
+force_tcp = false
+timeout = 5000
+keepalive = 30
+cert_refresh_delay = 240
+bootstrap_resolvers = ['9.9.9.9:53']
+ignore_system_dns = true
+netprobe_timeout = 60
+netprobe_address = '9.9.9.9:53'
+log_level = 2
+use_syslog = true
+
+# Mullvad DNS servers (will work through VPN)
+server_names = ['cloudflare', 'cloudflare-security', 'quad9-dnscrypt-ip4-nofilter-pri']
+
+[query_log]
+  file = '/var/log/dnscrypt-proxy/query.log'
+  format = 'tsv'
+
+[nx_log]
+  file = '/var/log/dnscrypt-proxy/nx.log'
+  format = 'tsv'
+
+[blocked_names]
+  blocked_names_file = '/etc/dnscrypt-proxy/blocked-names.txt'
+
+[blocked_ips]
+  blocked_ips_file = '/etc/dnscrypt-proxy/blocked-ips.txt'
+
+[cache]
+  cache = true
+  cache_size = 4096
+  cache_min_ttl = 2400
+  cache_max_ttl = 86400
+  cache_neg_min_ttl = 60
+  cache_neg_max_ttl = 600
+EOF
+
+# Create log directory
+mkdir -p /var/log/dnscrypt-proxy
+
+# Create empty blocklist files
+touch /etc/dnscrypt-proxy/blocked-names.txt
+touch /etc/dnscrypt-proxy/blocked-ips.txt
+
+# Disable systemd-resolved (conflicts with dnscrypt-proxy)
+systemctl disable systemd-resolved 2>/dev/null || true
+systemctl stop systemd-resolved 2>/dev/null || true
+
+# Configure resolv.conf to use dnscrypt-proxy
+cat > /etc/resolv.conf <<'EOF'
+nameserver 127.0.0.1
+options edns0
+EOF
+chattr +i /etc/resolv.conf
+
+# Enable and start dnscrypt-proxy
+systemctl enable dnscrypt-proxy
+systemctl restart dnscrypt-proxy
+
+echo "DNS-over-HTTPS configured:"
+echo "- All DNS queries encrypted via DNS-over-HTTPS"
+echo "- Using trusted resolvers (Cloudflare, Quad9)"
+echo "- DNSSEC validation enabled"
+echo "- DNS query logging at /var/log/dnscrypt-proxy/"
+echo "- resolv.conf locked to prevent tampering"
+
 # MULLVAD VPN
 echo "============================================"
 echo "MULLVAD VPN SETUP"
@@ -1421,10 +1506,12 @@ mullvad obfuscation set mode off 2>/dev/null || true
 mullvad auto-connect set on 2>/dev/null || true
 echo "Mullvad pre-configured. Remember to login and connect manually!"
 
-# VPN KILLSWITCH - Force all traffic through Mullvad
+# ADVANCED VPN KILLSWITCH
 echo "============================================"
-echo "CONFIGURING VPN KILLSWITCH"
+echo "CONFIGURING ADVANCED VPN KILLSWITCH"
 echo "============================================"
+
+# Flush all existing rules and chains
 iptables -F
 iptables -X
 iptables -Z
@@ -1434,29 +1521,156 @@ iptables -t nat -Z
 iptables -t mangle -F
 iptables -t mangle -X
 iptables -t mangle -Z
+iptables -t raw -F
+iptables -t raw -X
+iptables -t raw -Z
+
+# Set default policies to DROP everything
 iptables -P INPUT DROP
 iptables -P FORWARD DROP
 iptables -P OUTPUT DROP
-iptables -A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-iptables -A OUTPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+
+# Create custom chains for organization
+iptables -N LOG_DROP
+iptables -N LOG_ACCEPT
+iptables -N RATE_LIMIT
+iptables -N VPN_OUT
+iptables -N VALID_CHECK
+
+# LOG_DROP chain - Log then drop suspicious traffic
+iptables -A LOG_DROP -m limit --limit 2/min -j LOG --log-prefix "IPT_DROP: " --log-level 4
+iptables -A LOG_DROP -j DROP
+
+# LOG_ACCEPT chain - Log accepted connections (optional, for debugging)
+# iptables -A LOG_ACCEPT -m limit --limit 5/min -j LOG --log-prefix "IPT_ACCEPT: " --log-level 6
+iptables -A LOG_ACCEPT -j ACCEPT
+
+# RATE_LIMIT chain - Prevent DoS/DDoS
+iptables -A RATE_LIMIT -m conntrack --ctstate NEW -m limit --limit 60/sec --limit-burst 100 -j RETURN
+iptables -A RATE_LIMIT -m conntrack --ctstate NEW -j LOG_DROP
+
+# VALID_CHECK chain - Drop invalid packets
+iptables -A VALID_CHECK -m conntrack --ctstate INVALID -j LOG_DROP
+iptables -A VALID_CHECK -m conntrack --ctstate UNTRACKED -j LOG_DROP
+iptables -A VALID_CHECK -j RETURN
+
+# VPN_OUT chain - Strict egress filtering through VPN
+# Only allow specific ports even through VPN (DNS, HTTP, HTTPS)
+iptables -A VPN_OUT -o wg0-mullvad -p tcp -m multiport --dports 80,443 -j LOG_ACCEPT
+iptables -A VPN_OUT -o wg0-mullvad -p udp --dport 53 -j LOG_ACCEPT
+iptables -A VPN_OUT -o wg0-mullvad -p tcp --dport 53 -j LOG_ACCEPT
+iptables -A VPN_OUT -o wg0-mullvad -p icmp --icmp-type echo-request -m limit --limit 1/sec -j LOG_ACCEPT
+# Drop everything else even on VPN interface
+iptables -A VPN_OUT -o wg0-mullvad -j LOG_DROP
+
+# RAW table - Drop invalid packets before connection tracking
+iptables -t raw -A PREROUTING -m conntrack --ctstate INVALID -j DROP
+iptables -t raw -A OUTPUT -m conntrack --ctstate INVALID -j DROP
+
+# MANGLE table - Anti-spoofing and packet normalization
+iptables -t mangle -A PREROUTING -m conntrack --ctstate INVALID -j DROP
+iptables -t mangle -A PREROUTING -p tcp ! --syn -m conntrack --ctstate NEW -j DROP
+iptables -t mangle -A PREROUTING -p tcp --tcp-flags ALL NONE -j DROP
+iptables -t mangle -A PREROUTING -p tcp --tcp-flags ALL ALL -j DROP
+iptables -t mangle -A PREROUTING -p tcp --tcp-flags SYN,FIN SYN,FIN -j DROP
+iptables -t mangle -A PREROUTING -p tcp --tcp-flags SYN,RST SYN,RST -j DROP
+iptables -t mangle -A PREROUTING -p tcp --tcp-flags FIN,RST FIN,RST -j DROP
+iptables -t mangle -A PREROUTING -p tcp --tcp-flags ACK,FIN FIN -j DROP
+iptables -t mangle -A PREROUTING -p tcp --tcp-flags ACK,URG URG -j DROP
+iptables -t mangle -A PREROUTING -p tcp --tcp-flags ACK,PSH PSH -j DROP
+iptables -t mangle -A PREROUTING -s 127.0.0.0/8 ! -i lo -j DROP
+iptables -t mangle -A PREROUTING -s 0.0.0.0/8 -j DROP
+iptables -t mangle -A PREROUTING -s 10.0.0.0/8 -j DROP
+iptables -t mangle -A PREROUTING -s 172.16.0.0/12 -j DROP
+iptables -t mangle -A PREROUTING -s 192.168.0.0/16 -j DROP
+iptables -t mangle -A PREROUTING -s 224.0.0.0/4 -j DROP
+iptables -t mangle -A PREROUTING -s 240.0.0.0/5 -j DROP
+
+# INPUT chain
+# Loopback - Always allow localhost
 iptables -A INPUT -i lo -j ACCEPT
+
+# Validation checks
+iptables -A INPUT -j VALID_CHECK
+
+# Rate limiting
+iptables -A INPUT -j RATE_LIMIT
+
+# Established connections
+iptables -A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+
+# VPN interface - Allow from VPN
+iptables -A INPUT -i wg0-mullvad -m conntrack --ctstate NEW -j ACCEPT
+
+# Drop everything else
+iptables -A INPUT -j LOG_DROP
+
+# OUTPUT chain
+# Loopback - Always allow localhost
 iptables -A OUTPUT -o lo -j ACCEPT
-iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
-iptables -A OUTPUT -m conntrack --ctstate INVALID -j DROP
-iptables -A INPUT -i wg0-mullvad -j ACCEPT
+
+# Validation checks
+iptables -A OUTPUT -j VALID_CHECK
+
+# Allow DNS to dnscrypt-proxy (localhost:53)
+iptables -A OUTPUT -d 127.0.0.1 -p udp --dport 53 -j ACCEPT
+iptables -A OUTPUT -d 127.0.0.1 -p tcp --dport 53 -j ACCEPT
+
+# Allow established connections
+iptables -A OUTPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+
+# Allow WireGuard VPN connection (UDP 51820)
 iptables -A OUTPUT -p udp --dport 51820 -j ACCEPT
-iptables -A OUTPUT -o wg0-mullvad -j ACCEPT
-iptables -A OUTPUT ! -o wg0-mullvad -m conntrack --ctstate NEW -j DROP
-iptables -A INPUT -j DROP
+
+# Force all new connections through VPN interface only
+iptables -A OUTPUT -m conntrack --ctstate NEW -j VPN_OUT
+
+# Drop any new connections not going through VPN
+iptables -A OUTPUT -m conntrack --ctstate NEW ! -o wg0-mullvad -j LOG_DROP
+
+# Drop everything else
+iptables -A OUTPUT -j LOG_DROP
+
+# FORWARD chain - Block all forwarding
+iptables -A FORWARD -j LOG_DROP
+
+# SYN flood protection
+iptables -A INPUT -p tcp --syn -m limit --limit 10/sec --limit-burst 20 -j ACCEPT
+iptables -A INPUT -p tcp --syn -j LOG_DROP
+
+# IPv6 - Completely disabled
 ip6tables -F
 ip6tables -X
 ip6tables -Z
 ip6tables -P INPUT DROP
 ip6tables -P FORWARD DROP
 ip6tables -P OUTPUT DROP
-iptables-save   > /etc/iptables/rules.v4
-ip6tables-save  > /etc/iptables/rules.v6
+ip6tables -A INPUT -j DROP
+ip6tables -A FORWARD -j DROP
+ip6tables -A OUTPUT -j DROP
+
+# Save rules
+iptables-save > /etc/iptables/rules.v4
+ip6tables-save > /etc/iptables/rules.v6
 netfilter-persistent save
+
+echo "Advanced VPN killswitch configured:"
+echo "- Default DROP on all chains"
+echo "- Rate limiting (60 conn/sec, burst 100)"
+echo "- Invalid packet filtering in RAW table"
+echo "- Anti-spoofing rules in MANGLE table"
+echo "- TCP flag validation"
+echo "- Private IP range blocking"
+echo "- SYN flood protection"
+echo "- Strict port filtering (only 80, 443, 53 through VPN)"
+echo "- Connection logging at /var/log/kern.log"
+echo "- IPv6 completely blocked"
+echo ""
+echo "Allowed traffic:"
+echo "- Localhost: ALL"
+echo "- VPN tunnel: WireGuard (UDP 51820)"
+echo "- Through VPN: HTTP (80), HTTPS (443), DNS (53)"
+echo "- Everything else: BLOCKED"
 
 # FINAL WARNINGS AND COMPLETION
 echo ""

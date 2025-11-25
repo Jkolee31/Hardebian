@@ -1105,27 +1105,44 @@ userdel news
 userdel bluetooth
 userdel uucp
 
-# MOUNTS
-echo "                                    
-/dev/mapper/lvg-root                      /                          ext4       defaults,noatime,nodev,errors=remount-ro 0 1
-/dev/mapper/lvg-home                      /home                      ext4       defaults,noatime,nodev,nosuid 0 2
-/dev/mapper/lvg-run--shm                  /run/shm                   ext4       defaults,noatime,nodev,nosuid,noexec 0 2
-/dev/mapper/lvg-tmp                       /tmp                       ext4       defaults,noatime,nodev,nosuid,noexec 0 2
-/dev/mapper/lvg-usr                       /usr                       ext4       defaults,noatime,nodev,ro 0 2
-/dev/mapper/lvg-var                       /var                       ext4       defaults,noatime,nodev,nosuid 0 2
-/dev/mapper/lvg-var--log                  /var/log                   ext4       defaults,noatime,nodev,nosuid,noexec 0 2
-/dev/mapper/lvg-var--log--audit           /var/log/audit             ext4       defaults,noatime,nodev,nosuid,noexec 0 2
-/dev/mapper/lvg-var--tmp                  /var/tmp                   ext4       defaults,noatime,nodev,nosuid,noexec 0 2
-proc                                      /proc                      proc       defaults,noatime,nodev,nosuid,noexec,hidepid=2 0 0
-tmpfs                                     /run                       tmpfs      defaults,noatime,nodev,nosuid,noexec,mode=0755 0 0
-tmpfs                                     /tmp                       tmpfs      defaults,noatime,nodev,nosuid,noexec,mode=1777 0 0
-tmpfs                                     /var/tmp                   tmpfs      defaults,noatime,nodev,nosuid,noexec,bind,mode=1777
-tmpfs                                     /dev/shm                   tmpfs      defaults,noatime,noexec,nosuid,mode=1777 0 0
-udev                                      /dev                       devtmpfs   defaults,noatime,noexec,nosuid,noatime 0 0                              
-devpts                                    /dev/pts                   devpts     defaults,noatime,noexec,nosuid,noatime,newinstance,ptmxmode=0666 0 0
-" >> /etc/fstab
+# MOUNTS HARDENING
+echo "============================================"
+echo "HARDENING FILESYSTEM MOUNTS"
+echo "============================================"
 
-sed -i 's|^UUID=\([A-Za-z0-9-]\+\)[[:space:]]\+/boot/efi[[:space:]]\+vfat.*|UUID=\1                           /boot/efi                  vfat       noatime,nodev,nosuid,noexec,umask=0077 0 1|' /etc/fstab  
+# Create backup of original fstab
+cp /etc/fstab /etc/fstab.backup-$(date +%s)
+
+# Harden /boot/efi mount options if it exists
+if grep -q '/boot/efi' /etc/fstab; then
+    echo "Hardening /boot/efi mount options..."
+    sed -i 's|^\([^#].*[[:space:]]\)/boot/efi[[:space:]]\+vfat[[:space:]].*|\1/boot/efi  vfat  noatime,nodev,nosuid,noexec,umask=0077  0  1|' /etc/fstab
+fi
+
+# Add hardened tmpfs mounts for security-critical directories
+# Only add if they don't already exist
+if ! grep -q '/tmp.*tmpfs' /etc/fstab; then
+    echo "tmpfs  /tmp  tmpfs  defaults,noatime,nodev,nosuid,noexec,mode=1777  0  0" >> /etc/fstab
+fi
+
+if ! grep -q '/dev/shm.*tmpfs' /etc/fstab; then
+    echo "tmpfs  /dev/shm  tmpfs  defaults,noatime,nodev,nosuid,noexec,mode=1777  0  0" >> /etc/fstab
+fi
+
+# Harden proc mount with hidepid=2
+if grep -q '^proc' /etc/fstab; then
+    sed -i 's|^proc.*|proc  /proc  proc  defaults,noatime,nodev,nosuid,noexec,hidepid=2  0  0|' /etc/fstab
+elif ! grep -q '/proc.*proc.*hidepid' /etc/fstab; then
+    echo "proc  /proc  proc  defaults,noatime,nodev,nosuid,noexec,hidepid=2  0  0" >> /etc/fstab
+fi
+
+# Harden existing mount points by adding security options
+# This adds nodev where safe, but doesn't change existing partitions
+echo "Adding security options to existing mount points..."
+sed -i 's|^\([^#].*[[:space:]]\)/home[[:space:]]\+\([^[:space:]]\+\)[[:space:]]\+defaults.*|\1/home  \2  defaults,noatime,nodev,nosuid  0  2|' /etc/fstab
+
+echo "Filesystem mount hardening complete"
+echo "Original fstab backed up to /etc/fstab.backup-*"  
 
 # PERMISSIONS
 cd /etc

@@ -477,7 +477,7 @@ cat > /etc/security/access.conf << 'EOF'
 EOF
 
 # GRUB
-sed -i 's|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT="slab_nomerge init_on_alloc=1 init_on_free=1 page_alloc.shuffle=1 pti=on l1tf=full mds=full spectre_v2=on spec_store_bypass_disable=on tsx=off tsx_async_abort=full retbleed=auto random.trust_cpu=off random.trust_bootloader=off vsyscall=none kvm.nx_huge_pages=force kexec_load_disabled=1 quiet ipv6.disable=1 loglevel=0 apparmor=1 security=apparmor"|' /etc/default/grub
+sed -i 's|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT="slab_nomerge init_on_alloc=1 init_on_free=1 random.trust_cpu=off random.trust_bootloader=off pti=on page_alloc.shuffle=1 spectre_v2=on spec_store_bypass_disable=on l1tf=full mds=full tsx=off tsx_async_abort=full retbleed=auto mitigations=auto vsyscall=none kvm.nx_huge_pages=force quiet ipv6.disable=1 loglevel=0 apparmor=1 security=apparmor"|' /etc/default/grub
 update-grub
 chown root:root /etc/default/grub
 chmod 640 /etc/default/grub

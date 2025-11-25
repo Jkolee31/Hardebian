@@ -78,7 +78,7 @@ systemctl disable --now debug-shell.service wpa_supplicant speech-dispatcher blu
 apt purge -y  zram* pci* pmount* acpi* anacron* avahi* bc bind9* dns* fastfetch fonts-noto* fprint* isc-dhcp* lxc* docker* podman* xen* bochs* uml* vagrant* libssh* ssh* openssh* acpi* samba* winbind* qemu* libvirt* virt* cron* avahi* cup* print* rsync* nftables* virtual* sane* rpc* bind* nfs* blue* pp* spee* espeak* mobile* wireless* bc perl inet* util-linux-locales tasksel* vim* os-prober* netcat* libssh* gcc* g++* gdb* lldb* strace* ltrace* as nasm yasm fasm build-essential automake autoconf libtool cmake ninja-build meson
 
 install -d /etc/apt/preferences.d
-cat >/etc/apt/preferences.d/deny-ssh.pref <<'EOF'
+cat >/etc/apt/preferences.d/deny.pref <<'EOF'
 Package: openssh*
 Pin: release *
 Pin-Priority: -1
@@ -722,26 +722,6 @@ auth	    include     runuser
 session	  include     runuser
 EOF
 
-# OVH HARDENING SCRIPT
-apt install -y git
-git clone https://github.com/ovh/debian-cis.git && cd debian-cis
-cp debian/default /etc/default/cis-hardening
-sed -i "s#CIS_LIB_DIR=.*#CIS_LIB_DIR='$(pwd)'/lib#" /etc/default/cis-hardening
-sed -i "s#CIS_CHECKS_DIR=.*#CIS_CHECKS_DIR='$(pwd)'/bin/hardening#" /etc/default/cis-hardening
-sed -i "s#CIS_CONF_DIR=.*#CIS_CONF_DIR='$(pwd)'/etc#" /etc/default/cis-hardening
-sed -i "s#CIS_TMP_DIR=.*#CIS_TMP_DIR='$(pwd)'/tmp#" /etc/default/cis-hardening
-sed -i "s#CIS_VERSIONS_DIR=.*#CIS_VERSIONS_DIR='$(pwd)'/versions#" /etc/default/cis-hardening
-bin/hardening.sh --audit-all --allow-unsupported-distribution
-bin/hardening.sh --set-hardening-level 5 --allow-unsupported-distribution
-rm /home/dev/debian-cis/bin/hardening/disable_print_server.sh
-rm /home/dev/debian-cis/bin/hardening/disable_avahi_server.sh
-rm /home/dev/debian-cis/bin/hardening/disable_xwindow_system.sh
-rm /home/dev/debian-cis/bin/hardening/install_tripwire.sh
-rm /home/dev/debian-cis/bin/hardening/install_syslog-ng.sh
-bin/hardening.sh --apply --allow-unsupported-distribution
-bin/hardening.sh --apply --allow-unsupported-distribution
-bin/hardening.sh --apply --allow-unsupported-distribution
-
 # SUDO
 cat >/etc/sudoers <<'EOF'
 Defaults passwd_tries=2
@@ -752,25 +732,6 @@ root  ALL=(ALL) ALL
 EOF
 chmod 0440 /etc/sudoers
 chmod 0440 /etc/sudoers.d
-
-# SWAP SECURITY
-echo "============================================"
-echo "DISABLING SWAP FOR MEMORY SECURITY"
-echo "============================================"
-# Disable swap to prevent memory secrets from being written to disk
-swapoff -a
-# Remove swap entries from fstab (will be added back later if user wants encrypted swap)
-sed -i '/swap/d' /etc/fstab
-# Add note about swap
-cat >> /root/SECURITY_NOTES.txt <<'EOF'
-SWAP: Disabled for security
-- Memory contents never written to disk
-- Prevents hibernation attacks and cold boot attacks
-- If you need swap, configure encrypted swap manually:
-  cryptsetup luksFormat /dev/mapper/lvg-swap
-  echo "swap /dev/mapper/lvg-swap /dev/urandom swap,cipher=aes-xts-plain64,size=512" >> /etc/crypttab
-EOF
-echo "Swap disabled. Memory contents will never touch disk."
 
 # MAC ADDRESS RANDOMIZATION
 cat >/etc/systemd/system/macspoof.service <<'EOF'
@@ -846,7 +807,7 @@ cat > /etc/security/access.conf << 'EOF'
 -:ALL EXCEPT dev:tty1
 -:ALL EXCEPT dev:LOCAL
 -:dev:ALL EXCEPT LOCAL
-+:dev:tty1 tty2 tty3
++:dev:tty1 tty2 tty3 tty4 tty5 tty6
 -:root:ALL
 -:ALL:ALL
 EOF
@@ -1155,8 +1116,6 @@ echo "
 /dev/mapper/lvg-var--log                  /var/log                   ext4       defaults,noatime,nodev,nosuid,noexec 0 2
 /dev/mapper/lvg-var--log--audit           /var/log/audit             ext4       defaults,noatime,nodev,nosuid,noexec 0 2
 /dev/mapper/lvg-var--tmp                  /var/tmp                   ext4       defaults,noatime,nodev,nosuid,noexec 0 2
-/dev/mapper/lvg-swap                       none                      swap       sw 0 0
-tmpfs                                     /home/user/.cache          tmpfs      defaults,noatime,nodev,nosuid,noexec,uid=1000,gid=1000,mode=700 0 0
 proc                                      /proc                      proc       defaults,noatime,nodev,nosuid,noexec,hidepid=2 0 0
 tmpfs                                     /run                       tmpfs      defaults,noatime,nodev,nosuid,noexec,mode=0755 0 0
 tmpfs                                     /tmp                       tmpfs      defaults,noatime,nodev,nosuid,noexec,mode=1777 0 0

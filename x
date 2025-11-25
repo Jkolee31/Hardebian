@@ -72,7 +72,7 @@ ip6tables-save  > /etc/iptables/rules.v6
 netfilter-persistent save
 
 b# PACKAGE RESTRICTIONS
-apt purge -y  zram* pci* pmount* acpi* anacron* avahi* bc bind9* dns* fastfetch fonts-noto* fprint* isc-dhcp* lxc* docker* podman* xen* bochs* uml* vagrant* libssh* ssh* openssh* acpi* samba* winbind* qemu* libvirt* virt* cron* avahi* cup* print* rsync* nftables* virtual* sane* rpc* bind* nfs* blue* pp* spee* espeak* mobile* wireless* bc perl inet* util-linux-locales tasksel* vim* os-prober* netcat* libssh* gcc* g++* gdb* lldb* strace* ltrace* build-essential automake autoconf libtool cmake ninja-build meson
+apt purge -y  zram* pci* pmount* acpi* anacron* avahi* bc bind9* dns* fastfetch fonts-noto* fprint* isc-dhcp* lxc* docker* podman* xen* bochs* uml* vagrant* libssh* ssh* openssh* acpi* samba* winbind* qemu* libvirt* virt* cron* avahi* cup* print* rsync* nftables* virtual* sane* rpc* bind* nfs* blue* pp* spee* espeak* mobile* wireless* bc perl inet* util-linux-locales tasksel* vim* os-prober* netcat* libssh* gcc g++ gdb lldb strace* ltrace* build-essential automake autoconf libtool cmake ninja-build meson
 
 install -d /etc/apt/preferences.d
 cat >/etc/apt/preferences.d/deny.pref <<'EOF'
@@ -1099,7 +1099,6 @@ userdel games
 userdel irc
 userdel list
 userdel news
-userdel bluetooth
 userdel uucp
 
 # MOUNTS
@@ -1159,62 +1158,7 @@ chmod 0600 /etc/security/opasswd
 chown root:adm -R /var/log
 chmod -R 0640 /var/log
 chmod 0400 /etc/crontab
-chmod -R 0700 /etc/cron.hourly
-chmod -R 0700 /etc/cron.daily
-chmod -R 0700 /etc/cron.weekly
-chmod -R 0700 /etc/cron.monthly
-chmod -R 0700 /etc/cron.d
-chmod -R 0400 /etc/cron.allow
-chmod -R 0400 /etc/cron.deny
-chmod -R 0400 /etc/at.allow
-chmod -R 0700 /var/spool/cron
-chmod -R 0700 /var/spool/at
 cd
-
-# LOCKDOWN
-apt clean
-apt autopurge 
-apt purge "$(dpkg -l | grep '^rc' | awk '{print $2}')"
-find / -perm -4000 -o -perm -2000 -exec chmod a-s {} \; 2>/dev/null
-find / -perm -4000 -exec chmod u-s {} \;
-find / -perm -4000 -exec chmod g-s {} \;
-find / -perm -2000 -exec chmod u-s {} \;
-find / -perm -2000 -exec chmod g-s {} \;
-chmod u+s /usr/bin/sudo
-chmod u+s /bin/sudo
-chattr +i /etc/fstab
-chattr +i /etc/adduser.conf
-chattr +i /etc/group
-chattr +i /etc/group-
-chattr +i /etc/hosts
-chattr +i /etc/host.conf
-chattr +i /etc/hosts.allow
-chattr +i /etc/hosts.deny
-chattr +i /etc/login.defs
-chattr +i /etc/default/grub
-chattr +i /etc/passwd
-chattr +i /etc/passwd-
-chattr +i /etc/gshadow-
-chattr +i /etc/gshadow
-chattr -R +i /etc/sudoers*
-chattr +i /root/.bashrc
-chattr +i /etc/shadow
-chattr +i /etc/shadow-
-chattr +i /etc/shells
-chattr -R +i /etc/pam.d
-chattr +i /usr/lib/sysctl.d/sysctl.conf
-chattr -R +i /etc/modprobe.d
-chattr +i /etc/services
-chattr +i /etc/sudoers
-chattr -R +i /etc/security
-chattr -R +i /etc/iptables
-chattr -R +i /etc/ssh
-chattr +i /etc/conf
-chattr -R +i /etc/audit
-chattr -R +i /etc/opensnitchd
-chattr +i /etc/aide/aide.conf
-chattr +i /var/lib/aide/aide.db
-chattr -R +i /etc/usbguard
 
 # INTEGRITY CHECKING
 echo "============================================"
@@ -1580,9 +1524,54 @@ echo "- VPN tunnel: WireGuard (UDP 51820)"
 echo "- Through VPN: HTTP (80), HTTPS (443), DNS (53)"
 echo "- Everything else: BLOCKED"
 
+# LOCKDOWN
+find / -perm -4000 -exec chmod u-s {} \;
+find / -perm -4000 -exec chmod g-s {} \;
+find / -perm -2000 -exec chmod u-s {} \;
+find / -perm -2000 -exec chmod g-s {} \;
+chmod u+s /usr/bin/sudo
+chmod u+s /bin/sudo
+apt clean
+apt autopurge 
+apt purge "$(dpkg -l | grep '^rc' | awk '{print $2}')"
+chattr +i /etc/fstab
+chattr +i /etc/adduser.conf
+chattr +i /etc/group
+chattr +i /etc/group-
+chattr +i /etc/hosts
+chattr +i /etc/host.conf
+chattr +i /etc/hosts.allow
+chattr +i /etc/hosts.deny
+chattr +i /etc/login.defs
+chattr +i /etc/default/grub
+chattr +i /etc/passwd
+chattr +i /etc/passwd-
+chattr +i /etc/gshadow-
+chattr +i /etc/gshadow
+chattr -R +i /etc/sudoers*
+chattr +i /root/.bashrc
+chattr +i /etc/shadow
+chattr +i /etc/shadow-
+chattr +i /etc/shells
+chattr -R +i /etc/pam.d
+chattr +i /usr/lib/sysctl.d/sysctl.conf
+chattr -R +i /etc/modprobe.d
+chattr +i /etc/services
+chattr +i /etc/sudoers
+chattr -R +i /etc/security
+chattr -R +i /etc/iptables
+chattr -R +i /etc/ssh
+chattr +i /etc/conf
+chattr -R +i /etc/audit
+chattr -R +i /etc/opensnitchd
+chattr +i /etc/aide/aide.conf
+chattr +i /var/lib/aide/aide.db
+chattr -R +i /etc/usbguard
+
+
+
 # FINAL WARNINGS AND COMPLETION
-echo ""
-echo "============================================"
+"============================================"
 echo "HARDENING SCRIPT COMPLETED"
 echo "============================================"
 echo ""

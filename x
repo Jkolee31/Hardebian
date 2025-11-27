@@ -278,7 +278,7 @@ Pin-Priority: -1
 EOF
 
 # INSTALL PACKAGES
-apt install -y apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra pamu2fcfg libpam-u2f rsyslog chrony libpam-tmpdir fail2ban needrestart apt-listchanges acct sysstat rkhunter chkrootkit debsums apt-show-versions unzip patch alsa-utils pipewire pipewire-audio-client-libraries pipewire-pulse wireplumber lynis macchanger unhide tcpd fonts-liberation extrepo gnome-brave-icon-theme breeze-gtk-theme bibata* mousepad xfce4 libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xserver-xorg xinit xserver-xorg-legacy xfce4-pulse* xfce4-whisk* opensnitch* python3-opensnitch* auditd audispd-plugins unattended-upgrades aide aide-common usbguard
+apt install -y apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra pamu2fcfg libpam-u2f rsyslog chrony libpam-tmpdir fail2ban needrestart apt-listchanges acct sysstat rkhunter chkrootkit debsums apt-show-versions unzip patch alsa-utils pavucontrol pipewire pipewire-audio-client-libraries pipewire-pulse wireplumber lynis macchanger unhide tcpd fonts-liberation extrepo gnome-brave-icon-theme breeze-gtk-theme bibata* mousepad xfce4 libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xserver-xorg xinit xserver-xorg-legacy xfce4-pulse* xfce4-whisk* opensnitch* python3-opensnitch* auditd audispd-plugins unattended-upgrades aide aide-common usbguard
 systemctl enable apparmor
 systemctl start apparmor
 aa-enforce /etc/apparmor.d/* 2>/dev/null || true
@@ -332,44 +332,6 @@ cat > /etc/opensnitchd/rules/00-default-deny.json <<'EOF'
     "sensitive": false,
     "operand": "dest.network",
     "data": ""
-  }
-}
-EOF
-
-# Create allow rule for VPN interface
-cat > /etc/opensnitchd/rules/01-allow-vpn.json <<'EOF'
-{
-  "created": "2025-01-01T00:00:00.000000000Z",
-  "updated": "2025-01-01T00:00:00.000000000Z",
-  "name": "allow-vpn-interface",
-  "enabled": true,
-  "precedence": true,
-  "action": "allow",
-  "duration": "always",
-  "operator": {
-    "type": "simple",
-    "sensitive": false,
-    "operand": "dest.network.interface",
-    "data": "wg0-mullvad"
-  }
-}
-EOF
-
-# Create allow rule for localhost
-cat > /etc/opensnitchd/rules/02-allow-localhost.json <<'EOF'
-{
-  "created": "2025-01-01T00:00:00.000000000Z",
-  "updated": "2025-01-01T00:00:00.000000000Z",
-  "name": "allow-localhost",
-  "enabled": true,
-  "precedence": true,
-  "action": "allow",
-  "duration": "always",
-  "operator": {
-    "type": "simple",
-    "sensitive": false,
-    "operand": "dest.ip",
-    "data": "127.0.0.1"
   }
 }
 EOF
@@ -488,75 +450,6 @@ chown root:root /etc/conf
 echo "WARNING: Test your U2F login before running the lockdown section!"
 echo "The file will be made immutable at the end of the script."
 
-# USBGUARD CONFIGURATION
-echo "============================================"
-echo "CONFIGURING USB DEVICE WHITELISTING"
-echo "============================================"
-# Generate policy based on currently connected devices (including U2F key)
-mkdir -p /etc/usbguard
-usbguard generate-policy > /etc/usbguard/rules.conf
-
-# Set default policies
-cat > /etc/usbguard/usbguard-daemon.conf <<'EOF'
-# USBGuard daemon configuration
-
-# Rule file path
-RuleFile=/etc/usbguard/rules.conf
-
-# Implicit policy target
-ImplicitPolicyTarget=block
-
-# Present device policy
-PresentDevicePolicy=apply-policy
-
-# Present controller policy
-PresentControllerPolicy=keep
-
-# Inserted device policy
-InsertedDevicePolicy=block
-
-# Restore controller device state
-RestoreControllerDeviceState=false
-
-# Device manager backend
-DeviceManagerBackend=uevent
-
-# IPC access control
-IPCAllowedUsers=root
-IPCAllowedGroups=root
-
-# IPC access control files
-IPCAccessControlFiles=/etc/usbguard/IPCAccessControl.d/
-
-# Device rules
-DeviceRulesWithPort=false
-
-# Audit backend
-AuditBackend=LinuxAudit
-
-# Hide personally identifiable information
-HidePII=true
-EOF
-
-# Set permissions
-chmod 600 /etc/usbguard/rules.conf
-chmod 600 /etc/usbguard/usbguard-daemon.conf
-chown -R root:root /etc/usbguard
-
-# Enable USBGuard
-systemctl enable usbguard
-systemctl start usbguard
-
-echo "USBGuard configured:"
-echo "- Currently connected devices (including U2F key): ALLOWED"
-echo "- All other USB devices: BLOCKED"
-echo "- This prevents BadUSB attacks and unauthorized USB access"
-echo ""
-echo "To allow a new USB device:"
-echo "  usbguard list-devices"
-echo "  usbguard allow-device <device-id>"
-echo "  usbguard generate-policy >> /etc/usbguard/rules.conf"
-
 cat >/etc/pam.d/chfn <<'EOF'
 #%PAM-1.0
 auth      sufficient  pam_rootok.so
@@ -674,26 +567,6 @@ session   required    pam_limits.so
 account   include     common-account
 session   include     common-session
 password  include     common-password
-EOF
-
-cat >/etc/pam.d/lightdm <<'EOF'
-#%PAM-1.0
-auth      requisite   pam_nologin.so
-auth      required    pam_u2f.so authfile=/etc/conf
-account   include     common-account
-session   [success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux.so close
-session   include     common-session
-session   [success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux.so open
-password  include     common-password
-EOF
-
-cat >/etc/pam.d/lightdm-greeter <<'EOF'
-#%PAM-1.0
-auth      requisite   pam_nologin.so
-account   include     common-account
-password  include     pam_unix.so
-session   optional    pam_systemd.so
-session   include     common-session
 EOF
 
 cat >/etc/pam.d/newusers <<'EOF'
@@ -817,72 +690,43 @@ chmod 640 /etc/default/grub
 
 # SYSCTL
 cat > /usr/lib/sysctl.d/sysctl.conf << 'EOF'
-dev.tty.ldisc_autoload = 0
+dev.tty.ldisc_autoload=0
 fs.protected_fifos = 2
 fs.protected_hardlinks = 1
 fs.protected_regular = 2
 fs.protected_symlinks = 1
 fs.suid_dumpable = 0
-kernel.core_pattern = |/bin/false
-kernel.core_uses_pid = 1
 kernel.dmesg_restrict = 1
 kernel.kexec_load_disabled = 1
 kernel.kptr_restrict = 2
-kernel.perf_event_paranoid = 3
-kernel.printk = 3 3 3 3
 kernel.randomize_va_space = 2
-kernel.sysrq = 0
 kernel.unprivileged_bpf_disabled = 1
-kernel.unprivileged_userns_clone = 1
-kernel.yama.ptrace_scope = 2
-kernel.modules_disabled = 1
-net.core.bpf_jit_harden = 2
-net.core.default_qdisc = fq
-net.ipv4.conf.all.accept_local=0
-net.ipv4.conf.default.accept_local=0
-net.ipv4.conf.all.accept_redirects=0
-net.ipv4.conf.default.accept_redirects=0
-net.ipv4.conf.all.accept_source_route=0
-net.ipv4.conf.default.accept_source_route=0
-net.ipv4.conf.all.arp_evict_nocarrier=1
-net.ipv4.conf.default.arp_evict_nocarrier=1
-net.ipv4.conf.all.arp_filter=1
-net.ipv4.conf.default.arp_filter=1
-net.ipv4.conf.all.arp_ignore=2
-net.ipv4.conf.default.arp_ignore=2
-net.ipv4.conf.all.drop_gratuitous_arp=1
-net.ipv4.conf.default.drop_gratuitous_arp=1
-net.ipv4.conf.all.shared_media=0
-net.ipv4.conf.default.shared_media=0
-net.ipv4.conf.all.forwarding=0
-net.ipv4.conf.default.forwarding=0
-net.ipv4.conf.all.mc.forwarding=0
-net.ipv4.conf.default.mc.forwarding=0
-net.ipv4.conf.all.route_localnet=0
-net.ipv4.conf.default.route_localnet=0
-net.ipv4.conf.all.rp_filter=1
-net.ipv4.conf.default.rp_filter=1
-net.ipv4.conf.all.secure_redirects=0
-net.ipv4.conf.default.secure_redirects=0
-net.ipv4.conf.all.send_redirects=0
-net.ipv4.conf.default.send_redirects=0
-net.ipv4.conf.all.shared_media=0
-net.ipv4.conf.default.shared_media=0
-net.ipv6.conf.all.disable_ipv6=1
-net.ipv6.conf.*.disable_ipv6=1
-net.ipv6.conf.default.disable_ipv6=1
-net.ipv4.icmp_echo_ignore_all = 1
+kernel.yama.ptrace_scope = 3
+net.ipv4.conf.all.accept_redirects = 0
+net.ipv4.conf.all.accept_source_route = 0
+net.ipv4.conf.all.log_martians = 1
+net.ipv4.conf.all.rp_filter = 1
+net.ipv4.conf.all.secure_redirects = 0
+net.ipv4.conf.all.send_redirects = 0
+net.ipv4.conf.default.accept_redirects = 0
+net.ipv4.conf.default.accept_source_route = 0
+net.ipv4.conf.default.log_martians = 1
+net.ipv4.conf.default.rp_filter = 1
+net.ipv4.conf.default.secure_redirects = 0
+net.ipv4.conf.default.send_redirects = 0
 net.ipv4.icmp_echo_ignore_broadcasts = 1
 net.ipv4.icmp_ignore_bogus_error_responses = 1
-net.ipv4.tcp_congestion_control = bbr
-net.ipv4.tcp_dsack = 0
-net.ipv4.tcp_fack = 0
-net.ipv4.tcp_rfc1337 = 1
-net.ipv4.tcp_sack = 0
+net.ipv4.ip_forward = 0
 net.ipv4.tcp_syncookies = 1
-user.max_user_namespaces = 0
-vm.max_map_count = 262144
-vm.mmap_min_addr = 65536
+net.ipv6.conf.all.accept_ra = 0
+net.ipv6.conf.all.accept_redirects = 0
+net.ipv6.conf.all.accept_source_route = 0
+net.ipv6.conf.all.forwarding = 0
+net.ipv6.conf.default.accept_ra = 0
+net.ipv6.conf.default.accept_redirects = 0
+net.ipv6.conf.default.accept_source_route = 0
+net.ipv6.conf.all.disable_ipv6=1
+net.ipv6.conf.default.disable_ipv6=1
 vm.unprivileged_userfaultfd = 0
 vm.swappiness = 0
 vm.overcommit_memory = 2
@@ -893,10 +737,6 @@ sysctl --system
 
 # MODULES
 cat > /etc/modprobe.d/harden.conf << 'EOF'
-blacklist nf_tables
-install nf_tables /bin/false
-blacklist nft_chain_nat
-install nft_chain_nat /bin/false
 blacklist ax25
 install ax25 /bin/false
 blacklist can
@@ -971,32 +811,6 @@ blacklist usb_f_ecm
 install usb_f_ecm /bin/false
 blacklist usb_f_rndis
 install usb_f_rndis /bin/false
-blacklist nft_chain_nat
-install nft_chain_nat /bin/false
-blacklist nft_ct
-install nft_ct /bin/false
-blacklist nft_counter
-install nft_counter /bin/false
-blacklist nft_fib
-install nft_fib /bin/false
-blacklist nft_fib_inet
-install nft_fib_inet /bin/false
-blacklist nft_fib_ipv6
-install nft_fib_ipv6 /bin/false
-blacklist nft_fib_ipv4
-install nft_fib_ipv4 /bin/false
-blacklist nf_tables
-install nf_tables /bin/false
-blacklist nf_tables_set
-install nf_tables_set /bin/false
-blacklist nft_log
-install nft_log /bin/false
-blacklist nft_limit
-install nft_limit /bin/false
-blacklist nft_queue
-install nft_queue /bin/false
-blacklist nft_reject
-install nft_reject /bin/false
 blacklist mac80211
 install mac80211 /bin/false
 blacklist cfg80211
@@ -1080,26 +894,6 @@ install gnss-serial /bin/false
 blacklist gnss-usb
 install gnss-usb /bin/false
 EOF
-
-# UNNECESSARY ACCOUNTS/GROUPS
-groupdel _ssh --force
-groupdel irc --force
-groupdel kvm --force
-groupdel voice --force
-groupdel games --force
-groupdel systemd-timesync --force
-groupdel proxy --force
-userdel www-data
-userdel sync
-userdel lp
-userdel mail
-userdel proxy
-userdel dhcpcd
-userdel games
-userdel irc
-userdel list
-userdel news
-userdel uucp
 
 # MOUNTS
 echo "                                    
@@ -1297,232 +1091,6 @@ echo "- rkhunter: Rootkit detection"
 echo "- debsums: Package integrity"
 echo "Run 'sudo /usr/local/bin/verify-system.sh' for manual verification"
 
-# DNS SECURITY
-echo "============================================"
-echo "CONFIGURING DNS FOR MULLVAD VPN"
-echo "============================================"
-
-# Disable systemd-resolved (conflicts with Mullvad DNS)
-systemctl disable systemd-resolved 2>/dev/null || true
-systemctl stop systemd-resolved 2>/dev/null || true
-
-# Create systemd service to configure DNS after VPN connects
-cat > /etc/systemd/system/mullvad-dns.service <<'EOF'
-[Unit]
-Description=Configure DNS for Mullvad VPN
-After=network-online.target mullvad-daemon.service
-Wants=network-online.target
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=/bin/bash -c 'chattr -i /etc/resolv.conf; echo "nameserver 10.64.0.1" > /etc/resolv.conf; echo "options edns0" >> /etc/resolv.conf; chattr +i /etc/resolv.conf'
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# Create temporary resolv.conf (will be updated after Mullvad connects)
-cat > /etc/resolv.conf <<'EOF'
-# Temporary DNS - will be updated to Mullvad DNS (10.64.0.1) after VPN connection
-nameserver 1.1.1.1
-options edns0
-EOF
-
-echo "DNS configuration prepared:"
-echo "- systemd-resolved disabled (conflicts with Mullvad)"
-echo "- resolv.conf will use Mullvad DNS (10.64.0.1) after VPN connects"
-echo "- DNS already encrypted via WireGuard tunnel (no need for DoH)"
-echo "- Mullvad's DNS blocking features will work correctly"
-echo ""
-echo "NOTE: After connecting to Mullvad, run: sudo systemctl start mullvad-dns.service"
-echo "      This will lock DNS to Mullvad's encrypted DNS servers"
-
-# MULLVAD VPN
-echo "============================================"
-echo "MULLVAD VPN SETUP"
-echo "============================================"
-apt install -y git rsync curl wget dirmngr apt-transport-https ca-certificates lsb-release gnupg gpg
-curl -fsSLo /usr/share/keyrings/mullvad-keyring.asc https://repository.mullvad.net/deb/mullvad-keyring.asc
-echo "deb [signed-by=/usr/share/keyrings/mullvad-keyring.asc arch=$( dpkg --print-architecture )] https://repository.mullvad.net/deb/beta beta main" | tee /etc/apt/sources.list.d/mullvad.list
-apt update
-apt install -y mullvad-vpn mullvad-browser
-echo ""
-echo "IMPORTANT: You must configure Mullvad manually after installation:"
-echo "1. Run: mullvad account login <YOUR_ACCOUNT_NUMBER>"
-echo "2. Or complete the setup after the script finishes"
-echo ""
-echo "Pre-configuring Mullvad settings (will apply after login)..."
-mullvad relay set tunnel wireguard --port 51820 2>/dev/null || true
-mullvad relay set tunnel wireguard --ip-version ipv4 2>/dev/null || true
-mullvad relay set tunnel-protocol wireguard 2>/dev/null || true
-mullvad relay set location us nyc 2>/dev/null || true
-mullvad tunnel set wireguard --daita on 2>/dev/null || true
-mullvad obfuscation set mode off 2>/dev/null || true
-mullvad auto-connect set on 2>/dev/null || true
-echo "Mullvad pre-configured. Remember to login and connect manually!"
-
-# ADVANCED VPN KILLSWITCH
-echo "============================================"
-echo "CONFIGURING ADVANCED VPN KILLSWITCH"
-echo "============================================"
-
-# Flush all existing rules and chains
-iptables -F
-iptables -X
-iptables -Z
-iptables -t nat -F
-iptables -t nat -X
-iptables -t nat -Z
-iptables -t mangle -F
-iptables -t mangle -X
-iptables -t mangle -Z
-iptables -t raw -F
-iptables -t raw -X
-iptables -t raw -Z
-
-# Set default policies to DROP everything
-iptables -P INPUT DROP
-iptables -P FORWARD DROP
-iptables -P OUTPUT DROP
-
-# Create custom chains for organization
-iptables -N LOG_DROP
-iptables -N LOG_ACCEPT
-iptables -N RATE_LIMIT
-iptables -N VPN_OUT
-iptables -N VALID_CHECK
-
-# LOG_DROP chain - Log then drop suspicious traffic
-iptables -A LOG_DROP -m limit --limit 2/min -j LOG --log-prefix "IPT_DROP: " --log-level 4
-iptables -A LOG_DROP -j DROP
-
-# LOG_ACCEPT chain - Log accepted connections (optional, for debugging)
-# iptables -A LOG_ACCEPT -m limit --limit 5/min -j LOG --log-prefix "IPT_ACCEPT: " --log-level 6
-iptables -A LOG_ACCEPT -j ACCEPT
-
-# RATE_LIMIT chain - Prevent DoS/DDoS
-iptables -A RATE_LIMIT -m conntrack --ctstate NEW -m limit --limit 60/sec --limit-burst 100 -j RETURN
-iptables -A RATE_LIMIT -m conntrack --ctstate NEW -j LOG_DROP
-
-# VALID_CHECK chain - Drop invalid packets
-iptables -A VALID_CHECK -m conntrack --ctstate INVALID -j LOG_DROP
-iptables -A VALID_CHECK -m conntrack --ctstate UNTRACKED -j LOG_DROP
-iptables -A VALID_CHECK -j RETURN
-
-# VPN_OUT chain - Strict egress filtering through VPN
-# Only allow specific ports even through VPN (DNS, HTTP, HTTPS)
-iptables -A VPN_OUT -o wg0-mullvad -p tcp -m multiport --dports 80,443 -j LOG_ACCEPT
-iptables -A VPN_OUT -o wg0-mullvad -p udp --dport 53 -j LOG_ACCEPT
-iptables -A VPN_OUT -o wg0-mullvad -p tcp --dport 53 -j LOG_ACCEPT
-iptables -A VPN_OUT -o wg0-mullvad -p icmp --icmp-type echo-request -m limit --limit 1/sec -j LOG_ACCEPT
-# Drop everything else even on VPN interface
-iptables -A VPN_OUT -o wg0-mullvad -j LOG_DROP
-
-# RAW table - Drop invalid packets before connection tracking
-iptables -t raw -A PREROUTING -m conntrack --ctstate INVALID -j DROP
-iptables -t raw -A OUTPUT -m conntrack --ctstate INVALID -j DROP
-
-# MANGLE table - Anti-spoofing and packet normalization
-iptables -t mangle -A PREROUTING -m conntrack --ctstate INVALID -j DROP
-iptables -t mangle -A PREROUTING -p tcp ! --syn -m conntrack --ctstate NEW -j DROP
-iptables -t mangle -A PREROUTING -p tcp --tcp-flags ALL NONE -j DROP
-iptables -t mangle -A PREROUTING -p tcp --tcp-flags ALL ALL -j DROP
-iptables -t mangle -A PREROUTING -p tcp --tcp-flags SYN,FIN SYN,FIN -j DROP
-iptables -t mangle -A PREROUTING -p tcp --tcp-flags SYN,RST SYN,RST -j DROP
-iptables -t mangle -A PREROUTING -p tcp --tcp-flags FIN,RST FIN,RST -j DROP
-iptables -t mangle -A PREROUTING -p tcp --tcp-flags ACK,FIN FIN -j DROP
-iptables -t mangle -A PREROUTING -p tcp --tcp-flags ACK,URG URG -j DROP
-iptables -t mangle -A PREROUTING -p tcp --tcp-flags ACK,PSH PSH -j DROP
-iptables -t mangle -A PREROUTING -s 127.0.0.0/8 ! -i lo -j DROP
-iptables -t mangle -A PREROUTING -s 0.0.0.0/8 -j DROP
-iptables -t mangle -A PREROUTING -s 10.0.0.0/8 -j DROP
-iptables -t mangle -A PREROUTING -s 172.16.0.0/12 -j DROP
-iptables -t mangle -A PREROUTING -s 192.168.0.0/16 -j DROP
-iptables -t mangle -A PREROUTING -s 224.0.0.0/4 -j DROP
-iptables -t mangle -A PREROUTING -s 240.0.0.0/5 -j DROP
-
-# INPUT chain
-# Loopback - Always allow localhost
-iptables -A INPUT -i lo -j ACCEPT
-
-# Validation checks
-iptables -A INPUT -j VALID_CHECK
-
-# Rate limiting
-iptables -A INPUT -j RATE_LIMIT
-
-# Established connections
-iptables -A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-
-# VPN interface - Allow from VPN
-iptables -A INPUT -i wg0-mullvad -m conntrack --ctstate NEW -j ACCEPT
-
-# Drop everything else
-iptables -A INPUT -j LOG_DROP
-
-# OUTPUT chain
-# Loopback - Always allow localhost
-iptables -A OUTPUT -o lo -j ACCEPT
-
-# Validation checks
-iptables -A OUTPUT -j VALID_CHECK
-
-# Allow established connections
-iptables -A OUTPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-
-# Allow WireGuard VPN connection (UDP 51820)
-iptables -A OUTPUT -p udp --dport 51820 -j ACCEPT
-
-# Force all new connections through VPN interface only
-iptables -A OUTPUT -m conntrack --ctstate NEW -j VPN_OUT
-
-# Drop any new connections not going through VPN
-iptables -A OUTPUT -m conntrack --ctstate NEW ! -o wg0-mullvad -j LOG_DROP
-
-# Drop everything else
-iptables -A OUTPUT -j LOG_DROP
-
-# FORWARD chain - Block all forwarding
-iptables -A FORWARD -j LOG_DROP
-
-# SYN flood protection
-iptables -A INPUT -p tcp --syn -m limit --limit 10/sec --limit-burst 20 -j ACCEPT
-iptables -A INPUT -p tcp --syn -j LOG_DROP
-
-# IPv6 - Completely disabled
-ip6tables -F
-ip6tables -X
-ip6tables -Z
-ip6tables -P INPUT DROP
-ip6tables -P FORWARD DROP
-ip6tables -P OUTPUT DROP
-ip6tables -A INPUT -j DROP
-ip6tables -A FORWARD -j DROP
-ip6tables -A OUTPUT -j DROP
-
-# Save rules
-iptables-save > /etc/iptables/rules.v4
-ip6tables-save > /etc/iptables/rules.v6
-netfilter-persistent save
-
-echo "Advanced VPN killswitch configured:"
-echo "- Default DROP on all chains"
-echo "- Rate limiting (60 conn/sec, burst 100)"
-echo "- Invalid packet filtering in RAW table"
-echo "- Anti-spoofing rules in MANGLE table"
-echo "- TCP flag validation"
-echo "- Private IP range blocking"
-echo "- SYN flood protection"
-echo "- Strict port filtering (only 80, 443, 53 through VPN)"
-echo "- Connection logging at /var/log/kern.log"
-echo "- IPv6 completely blocked"
-echo ""
-echo "Allowed traffic:"
-echo "- Localhost: ALL"
-echo "- VPN tunnel: WireGuard (UDP 51820)"
-echo "- Through VPN: HTTP (80), HTTPS (443), DNS (53)"
-echo "- Everything else: BLOCKED"
 
 # LOCKDOWN
 find / -perm -4000 -exec chmod u-s {} \;
@@ -1567,7 +1135,6 @@ chattr -R +i /etc/opensnitchd
 chattr +i /etc/aide/aide.conf
 chattr +i /var/lib/aide/aide.db
 chattr -R +i /etc/usbguard
-
 
 
 # FINAL WARNINGS AND COMPLETION

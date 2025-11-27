@@ -278,7 +278,7 @@ Pin-Priority: -1
 EOF
 
 # INSTALL PACKAGES
-apt install -y apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra pamu2fcfg libpam-u2f rsyslog chrony libpam-tmpdir fail2ban needrestart apt-listchanges acct sysstat rkhunter chkrootkit debsums apt-show-versions unzip patch alsa-utils pavucontrol pipewire pipewire-audio-client-libraries pipewire-pulse wireplumber lynis macchanger unhide tcpd fonts-liberation extrepo gnome-brave-icon-theme breeze-gtk-theme bibata* mousepad xfce4 libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xserver-xorg xinit xserver-xorg-legacy xfce4-pulse* xfce4-whisk* opensnitch* python3-opensnitch* auditd audispd-plugins unattended-upgrades aide aide-commo
+apt install -y apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra pamu2fcfg libpam-u2f rsyslog chrony libpam-tmpdir fail2ban needrestart apt-listchanges acct sysstat rkhunter chkrootkit debsums apt-show-versions unzip patch alsa-utils pavucontrol pipewire pipewire-audio-client-libraries pipewire-pulse wireplumber lynis macchanger unhide tcpd fonts-liberation extrepo gnome-brave-icon-theme breeze-gtk-theme bibata* mousepad xfce4 libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xserver-xorg xinit xserver-xorg-legacy xfce4-pulse* xfce4-whisk* opensnitch* python3-opensnitch* auditd audispd-plugins unattended-upgrades aide aide-common
 systemctl enable apparmor
 systemctl start apparmor
 aa-enforce /etc/apparmor.d/* 2>/dev/null || true
@@ -919,7 +919,7 @@ sed -i 's|^UUID=\([A-Za-z0-9-]\+\)[[:space:]]\+/boot/efi[[:space:]]\+vfat.*|UUID
 
 # PERMISSIONS
 cd /etc
-chown root:root cron.hourly cron.daily cron.weekly cron.monthly cron.d group group- passwd passwd- security iptables default sudoers fstab hosts.allow hosts.deny hosts host.conf
+chown root:root group group- passwd passwd- security iptables default sudoers fstab hosts.allow hosts.deny hosts host.conf
 chmod 0644 /etc/passwd
 chmod 0644 /etc/group
 chmod 0640 /etc/shadow
@@ -933,7 +933,6 @@ chmod 0440 /etc/sudoers
 chmod 0600 /root/.bashrc
 chmod 0600 /root/.profile
 chmod 0600 /etc/security
-chmod 0600 /etc/crontab
 chown dev /home/dev
 chmod 0700 /home/dev
 chmod 0700 /root 
@@ -951,146 +950,7 @@ chown root:root /etc/security/opasswd
 chmod 0600 /etc/security/opasswd
 chown root:adm -R /var/log
 chmod -R 0640 /var/log
-chmod 0400 /etc/crontab
 cd
-
-# INTEGRITY CHECKING
-echo "============================================"
-echo "CONFIGURING FILESYSTEM INTEGRITY MONITORING"
-echo "============================================"
-
-# Configure AIDE
-cat > /etc/aide/aide.conf <<'EOF'
-# AIDE configuration for maximum security monitoring
-
-# Database locations
-database=file:/var/lib/aide/aide.db
-database_out=file:/var/lib/aide/aide.db.new
-database_new=file:/var/lib/aide/aide.db.new
-
-# Report settings
-gzip_dbout=yes
-verbose=5
-report_url=stdout
-report_url=file:/var/log/aide/aide.log
-
-# Rule definitions
-All = p+i+n+u+g+s+b+m+c+md5+sha256+sha512
-Binaries = p+i+n+u+g+s+b+m+c+md5+sha256+sha512
-Configs = p+i+n+u+g+s+b+m+c+md5+sha256+sha512
-Logs = p+i+n+u+g
-Databases = p+i+n+u+g+s+b+m+c+md5+sha256+sha512
-
-# Directories to monitor
-/boot          Binaries
-/bin           Binaries
-/sbin          Binaries
-/usr/bin       Binaries
-/usr/sbin      Binaries
-/usr/local     Binaries
-/lib           Binaries
-/lib64         Binaries
-/usr/lib       Binaries
-/usr/lib64     Binaries
-
-# Configuration files
-/etc           Configs
-!/etc/mtab
-!/etc/aide/aide.db
-!/etc/aide/aide.db.new
-
-# Root home
-/root          Configs
-
-# Critical system files
-/var/lib/dpkg  Databases
-/var/lib/apt   Databases
-
-# Logs (less strict monitoring)
-!/var/log/aide
-!/var/log/journal
-!/var/log/audit
-
-# Exclude volatile directories
-!/tmp
-!/var/tmp
-!/var/cache
-!/var/run
-!/run
-!/proc
-!/sys
-!/dev
-!/home/*/\.cache
-EOF
-
-mkdir -p /var/log/aide
-chown root:root /etc/aide/aide.conf
-chmod 600 /etc/aide/aide.conf
-
-# Initialize AIDE database (this takes time)
-echo "Initializing AIDE database (this may take several minutes)..."
-aideinit
-if [ -f /var/lib/aide/aide.db.new ]; then
-    mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
-    echo "AIDE database initialized successfully"
-else
-    echo "WARNING: AIDE database initialization may have failed"
-fi
-
-# Create daily AIDE check cronjob
-cat > /etc/cron.daily/aide-check <<'EOF'
-#!/bin/bash
-# Daily AIDE integrity check
-/usr/bin/aide --check | tee -a /var/log/aide/daily-$(date +\%Y\%m\%d).log
-if [ ${PIPESTATUS[0]} -ne 0 ]; then
-    echo "AIDE detected filesystem changes on $(hostname)" | mail -s "AIDE Alert" root
-fi
-EOF
-chmod 755 /etc/cron.daily/aide-check
-
-# Configure rkhunter
-sed -i 's/^UPDATE_MIRRORS=.*/UPDATE_MIRRORS=1/' /etc/rkhunter.conf
-sed -i 's/^MIRRORS_MODE=.*/MIRRORS_MODE=0/' /etc/rkhunter.conf
-sed -i 's/^WEB_CMD=.*/WEB_CMD=""/' /etc/rkhunter.conf
-echo "ALLOWHIDDENDIR=/dev/.lxc" >> /etc/rkhunter.conf
-echo "ALLOWHIDDENDIR=/dev/.udev" >> /etc/rkhunter.conf
-echo "ALLOWHIDDENDIR=/dev/.static" >> /etc/rkhunter.conf
-echo "ALLOWHIDDENDIR=/dev/.initramfs" >> /etc/rkhunter.conf
-
-# Initialize rkhunter database
-rkhunter --update 2>/dev/null || true
-rkhunter --propupd
-
-# Create comprehensive verification script
-cat >/usr/local/bin/verify-system.sh <<'EOF'
-#!/bin/bash
-echo "Running comprehensive system integrity checks..."
-echo "================================================"
-echo ""
-echo "[1/4] Checking filesystem integrity with AIDE..."
-aide --check
-echo ""
-echo "[2/4] Checking package file integrity with debsums..."
-debsums --changed --silent
-echo ""
-echo "[3/4] Checking for rootkits with rkhunter..."
-rkhunter --check --skip-keypress --report-warnings-only
-echo ""
-echo "[4/4] Checking for rootkits with chkrootkit..."
-chkrootkit -q
-echo ""
-echo "================================================"
-echo "System integrity check complete."
-echo "Review logs in /var/log/aide/ for detailed AIDE results"
-EOF
-chmod 755 /usr/local/bin/verify-system.sh
-
-echo "Integrity monitoring configured:"
-echo "- AIDE: Daily automated checks"
-echo "- rkhunter: Rootkit detection"
-echo "- debsums: Package integrity"
-echo "Run 'sudo /usr/local/bin/verify-system.sh' for manual verification"
-
 
 # LOCKDOWN
 find / -perm -4000 -exec chmod u-s {} \;

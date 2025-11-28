@@ -3,28 +3,6 @@
 set -euo pipefail
 
 # PRE CONFIG
-cat >/etc/apt/apt.conf.d/50unattended-upgrades <<'EOF'
-Unattended-Upgrade::Allowed-Origins {
-    "${distro_id}:${distro_codename}-security";
-    "${distro_id}ESMApps:${distro_codename}-apps-security";
-    "${distro_id}ESM:${distro_codename}-infra-security";
-};
-Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
-Unattended-Upgrade::Remove-Unused-Dependencies "true";
-Unattended-Upgrade::Automatic-Reboot "false";
-Unattended-Upgrade::AutoFixInterruptedDpkg "true";
-Unattended-Upgrade::MinimalSteps "true";
-Unattended-Upgrade::Mail "root";
-Unattended-Upgrade::MailReport "on-change";
-EOF
-
-cat >/etc/apt/apt.conf.d/20auto-upgrades <<'EOF'
-APT::Periodic::Update-Package-Lists "1";
-APT::Periodic::Download-Upgradeable-Packages "1";
-APT::Periodic::AutocleanInterval "7";
-APT::Periodic::Unattended-Upgrade "1";
-EOF
-
 cat >/etc/apt/apt.conf.d/98-hardening <<'EOF'
 APT::Get::AllowUnauthenticated "false";
 Acquire::http::AllowRedirect "false";
@@ -278,177 +256,25 @@ Pin-Priority: -1
 EOF
 
 # INSTALL PACKAGES
-apt install -y apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra pamu2fcfg libpam-u2f rsyslog chrony libpam-tmpdir fail2ban needrestart apt-listchanges acct sysstat rkhunter chkrootkit debsums apt-show-versions unzip patch alsa-utils pavucontrol pipewire pipewire-audio-client-libraries pipewire-pulse wireplumber lynis macchanger unhide tcpd fonts-liberation extrepo gnome-brave-icon-theme breeze-gtk-theme bibata* mousepad xfce4 libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xserver-xorg xinit xserver-xorg-legacy xfce4-pulse* xfce4-whisk* opensnitch* python3-opensnitch* auditd audispd-plugins unattended-upgrades aide aide-common
+apt install -y apparmor apparmor-utils apparmor-profiles apparmor-profiles-extra pamu2fcfg libpam-u2f rsyslog chrony libpam-tmpdir fail2ban needrestart apt-listchanges acct sysstat rkhunter chkrootkit debsums apt-show-versions unzip patch alsa-utils pavucontrol pipewire pipewire-audio-client-libraries pipewire-pulse wireplumber lynis macchanger unhide tcpd fonts-liberation extrepo gnome-brave-icon-theme breeze-gtk-theme bibata* mousepad libxfce4ui-utils thunar xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop4 xfwm4 xserver-xorg xinit xserver-xorg-legacy xfce4-pulse* xfce4-whisk* opensnitch* python3-opensnitch*
 systemctl enable apparmor
 systemctl start apparmor
 aa-enforce /etc/apparmor.d/* 2>/dev/null || true
 
 # OPENSNITCH CONFIGURATION
-echo "============================================"
-echo "CONFIGURING OPENSNITCH APPLICATION FIREWALL"
-echo "============================================"
 systemctl enable opensnitch
 systemctl start opensnitch
 apt install -y git
-# Install Respect-My-Internet blocklists
-echo "Installing Respect-My-Internet blocklists..."
-cd /tmp
 git clone --depth 1 https://github.com/DXC-0/Respect-My-Internet.git
 cd Respect-My-Internet
-
-# Create OpenSnitch directories
-mkdir -p /etc/opensnitchd/{blocklist,ip,regex,rules}
-
-# Copy blocklists
-if [ -d "blocklist" ]; then
-    cp -r blocklist/* /etc/opensnitchd/blocklist/ 2>/dev/null || true
-fi
-if [ -d "ip" ]; then
-    cp -r ip/* /etc/opensnitchd/ip/ 2>/dev/null || true
-fi
-if [ -d "regex" ]; then
-    cp -r regex/* /etc/opensnitchd/regex/ 2>/dev/null || true
-fi
-if [ -d "rules" ]; then
-    cp -r rules/* /etc/opensnitchd/rules/ 2>/dev/null || true
-fi
-
-# Set proper permissions
-chown -R root:root /etc/opensnitchd
-chmod -R 600 /etc/opensnitchd
-
-# Create default-deny rule for system security
-cat > /etc/opensnitchd/rules/00-default-deny.json <<'EOF'
-{
-  "created": "2025-01-01T00:00:00.000000000Z",
-  "updated": "2025-01-01T00:00:00.000000000Z",
-  "name": "default-deny-outbound",
-  "enabled": true,
-  "precedence": false,
-  "action": "deny",
-  "duration": "always",
-  "operator": {
-    "type": "simple",
-    "sensitive": false,
-    "operand": "dest.network",
-    "data": ""
-  }
-}
-EOF
-
-# Restart OpenSnitch to load new rules
+chmod +x install.sh
+./install.sh
 systemctl restart opensnitch
 
-echo "OpenSnitch configured with Respect-My-Internet blocklists"
-echo "Rules installed: blocklists, IP filters, regex patterns"
-cd /tmp
-rm -rf Respect-My-Internet
-
-# AUDITD CONFIGURATION
-cat >/etc/audit/rules.d/hardening.rules <<'EOF'
-# Delete all existing rules
--D
-
-# Buffer size
--b 8192
-
-# Failure mode (2 = panic on failure)
--f 2
-
-# Audit changes to time
--a always,exit -F arch=b64 -S adjtimex -S settimeofday -k time-change
--a always,exit -F arch=b32 -S adjtimex -S settimeofday -S stime -k time-change
--a always,exit -F arch=b64 -S clock_settime -k time-change
--a always,exit -F arch=b32 -S clock_settime -k time-change
--w /etc/localtime -p wa -k time-change
-
-# Audit identity/authentication events
--w /etc/group -p wa -k identity
--w /etc/passwd -p wa -k identity
--w /etc/gshadow -p wa -k identity
--w /etc/shadow -p wa -k identity
--w /etc/security/opasswd -p wa -k identity
-
-# Audit PAM configuration
--w /etc/pam.d/ -p wa -k pam
--w /etc/nsswitch.conf -p wa -k identity
-
-# Audit login/logout events
--w /var/log/faillog -p wa -k logins
--w /var/log/lastlog -p wa -k logins
--w /var/log/tallylog -p wa -k logins
-
-# Audit network environment
--a always,exit -F arch=b64 -S sethostname -S setdomainname -k network
--a always,exit -F arch=b32 -S sethostname -S setdomainname -k network
--w /etc/hosts -p wa -k network
--w /etc/network/ -p wa -k network
-
-# Audit AppArmor events
--w /etc/apparmor/ -p wa -k apparmor
--w /etc/apparmor.d/ -p wa -k apparmor
-
-# Audit kernel module loading
--w /sbin/insmod -p x -k modules
--w /sbin/rmmod -p x -k modules
--w /sbin/modprobe -p x -k modules
--a always,exit -F arch=b64 -S init_module -S delete_module -k modules
-
-# Audit file deletions
--a always,exit -F arch=b64 -S unlink -S unlinkat -S rename -S renameat -k delete
--a always,exit -F arch=b32 -S unlink -S unlinkat -S rename -S renameat -k delete
-
-# Audit sudo usage
--w /etc/sudoers -p wa -k sudoers
--w /etc/sudoers.d/ -p wa -k sudoers
-
-# Audit changes to system mandatory access controls
--w /etc/selinux/ -p wa -k MAC-policy
-
-# Audit session initiation
--w /var/run/utmp -p wa -k session
--w /var/log/wtmp -p wa -k session
--w /var/log/btmp -p wa -k session
-
-# Audit discretionary access control permission modifications
--a always,exit -F arch=b64 -S chmod -S fchmod -S fchmodat -F auid>=1000 -F auid!=4294967295 -k perm_mod
--a always,exit -F arch=b32 -S chmod -S fchmod -S fchmodat -F auid>=1000 -F auid!=4294967295 -k perm_mod
--a always,exit -F arch=b64 -S chown -S fchown -S fchownat -S lchown -F auid>=1000 -F auid!=4294967295 -k perm_mod
--a always,exit -F arch=b32 -S chown -S fchown -S fchownat -S lchown -F auid>=1000 -F auid!=4294967295 -k perm_mod
--a always,exit -F arch=b64 -S setxattr -S lsetxattr -S fsetxattr -S removexattr -S lremovexattr -S fremovexattr -F auid>=1000 -F auid!=4294967295 -k perm_mod
--a always,exit -F arch=b32 -S setxattr -S lsetxattr -S fsetxattr -S removexattr -S lremovexattr -S fremovexattr -F auid>=1000 -F auid!=4294967295 -k perm_mod
-
-# Audit privileged commands
--a always,exit -F path=/usr/bin/sudo -F perm=x -F auid>=1000 -F auid!=4294967295 -k privileged
--a always,exit -F path=/usr/bin/su -F perm=x -F auid>=1000 -F auid!=4294967295 -k privileged
-
-# Make config immutable
--e 2
-EOF
-
-systemctl enable auditd
-systemctl start auditd
-
 # PAM/U2F
-echo "============================================"
-echo "CRITICAL: U2F KEY ENROLLMENT"
-echo "============================================"
-echo "Insert your U2F key and touch it when prompted."
-echo "If this fails, the system will be LOCKED OUT."
-echo "Press Enter to continue or Ctrl+C to abort..."
-read -r
 pamu2fcfg -u dev > /etc/conf
-if [ ! -s /etc/conf ]; then
-    echo "ERROR: U2F enrollment failed! Aborting to prevent lockout."
-    rm -f /etc/conf
-    exit 1
-fi
-echo "U2F enrollment successful. Key stored in /etc/conf"
 chmod 600 /etc/conf
 chown root:root /etc/conf
-# Don't make immutable yet - let user test login first
-echo "WARNING: Test your U2F login before running the lockdown section!"
-echo "The file will be made immutable at the end of the script."
 
 cat >/etc/pam.d/chfn <<'EOF'
 #%PAM-1.0
@@ -581,14 +407,14 @@ EOF
 
 cat >/etc/pam.d/runuser <<'EOF'
 #%PAM-1.0
-auth	    sufficient  pam_rootok.so
+auth	  sufficient  pam_rootok.so
 session	  required    pam_limits.so
 session	  required    pam_unix.so
 EOF
 
 cat >/etc/pam.d/runuser-l <<'EOF'
 #%PAM-1.0
-auth	    include     runuser
+auth	  include     runuser
 session	  include     runuser
 EOF
 
@@ -603,26 +429,6 @@ EOF
 chmod 0440 /etc/sudoers
 chmod 0440 /etc/sudoers.d
 
-# MAC ADDRESS RANDOMIZATION
-cat >/etc/systemd/system/macspoof.service <<'EOF'
-[Unit]
-Description=Randomize MAC address
-Wants=network-pre.target
-Before=network-pre.target
-BindsTo=sys-subsystem-net-devices-eth0.device
-After=sys-subsystem-net-devices-eth0.device
-
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/macchanger -r eth0
-RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-systemctl enable macspoof.service
-
 # MISC HARDENING
 echo "/bin/bash" > /etc/shells
 passwd -l root
@@ -630,8 +436,8 @@ echo "needs_root_rights=no" >> /etc/X11/Xwrapper.config
 dpkg-reconfigure xserver-xorg-legacy
 
 cat >/etc/host.conf <<'EOF'
-order hosts,bind
 multi on
+order hosts,bind
 EOF
 
 cat >/etc/security/limits.d/limits.conf <<'EOF'
@@ -639,7 +445,7 @@ cat >/etc/security/limits.d/limits.conf <<'EOF'
 *     hard  nproc      200
 *     hard  nofile     1024
 *     soft  nofile     512
-*     -     maxlogins  2
+*     -     maxlogins  1
 root  -     maxlogins  5
 root  hard  nproc      3000
 EOF
@@ -666,12 +472,6 @@ echo "umask 077" >> /etc/profile
 echo "umask 077" >> /etc/bash.bashrc
 echo "ALL: LOCAL, 127.0.0.1" >> /etc/hosts.allow
 echo "ALL: ALL" > /etc/hosts.deny
-
-cat > /etc/profile.d/autologout.sh <<'EOF'
-TMOUT=300
-readonly TMOUT
-export TMOUT
-EOF
 
 cat > /etc/security/access.conf << 'EOF'
 -:ALL EXCEPT dev:tty1
@@ -962,6 +762,8 @@ chmod u+s /bin/sudo
 apt clean
 apt autopurge 
 apt purge "$(dpkg -l | grep '^rc' | awk '{print $2}')"
+rm -r /etc/ssh
+rm -r /usr/lib/ssh*
 chattr +i /etc/fstab
 chattr +i /etc/adduser.conf
 chattr +i /etc/group
@@ -988,63 +790,7 @@ chattr +i /etc/services
 chattr +i /etc/sudoers
 chattr -R +i /etc/security
 chattr -R +i /etc/iptables
-chattr -R +i /etc/ssh
 chattr +i /etc/conf
-chattr -R +i /etc/audit
 chattr -R +i /etc/opensnitchd
-chattr +i /etc/aide/aide.conf
-chattr +i /var/lib/aide/aide.db
-chattr -R +i /etc/usbguard
 
-
-# FINAL WARNINGS AND COMPLETION
-"============================================"
 echo "HARDENING SCRIPT COMPLETED"
-echo "============================================"
-echo ""
-echo "CRITICAL POST-INSTALLATION STEPS:"
-echo "1. Login to Mullvad VPN:"
-echo "   mullvad account login <YOUR_ACCOUNT_NUMBER>"
-echo "   mullvad connect"
-echo ""
-echo "2. REBOOT THE SYSTEM to apply all changes"
-echo ""
-echo "3. After reboot, verify U2F login works BEFORE proceeding"
-echo ""
-echo "4. Test MAC randomization:"
-echo "   ip link show eth0"
-echo ""
-echo "5. Verify VPN killswitch:"
-echo "   curl https://am.i.mullvad.net/connected"
-echo ""
-echo "6. Run integrity check:"
-echo "   sudo /usr/local/bin/verify-system.sh"
-echo ""
-echo "7. Review audit logs:"
-echo "   sudo ausearch -m USER_LOGIN"
-echo ""
-echo "SECURITY FEATURES ENABLED:"
-echo "- Root account is LOCKED (passwd -l root)"
-echo "- All authentication requires U2F hardware key"
-echo "- All network traffic MUST go through Mullvad VPN"
-echo "- OpenSnitch application firewall with Respect-My-Internet blocklists"
-echo "- USBGuard blocking all USB devices except whitelisted (U2F key)"
-echo "- AIDE filesystem integrity monitoring (daily automated checks)"
-echo "- Auditd security event logging"
-echo "- Compilers and debuggers are BLOCKED"
-echo "- Swap is DISABLED (no memory written to disk)"
-echo "- Most kernel modules are BLACKLISTED"
-echo "- System files are IMMUTABLE (chattr +i)"
-echo "- Automatic security updates are ENABLED"
-echo "- MAC address randomization on boot"
-echo ""
-echo "USEFUL COMMANDS:"
-echo "- Unlock immutable files: chattr -i <file>"
-echo "- View audit logs: ausearch -k <key>"
-echo "- Check firewall: iptables -L -v -n"
-echo "- Check USB devices: usbguard list-devices"
-echo "- Check OpenSnitch rules: ls /etc/opensnitchd/rules/"
-echo "- Run integrity check: /usr/local/bin/verify-system.sh"
-echo "- View AIDE reports: ls /var/log/aide/"
-echo ""
-echo "============================================"

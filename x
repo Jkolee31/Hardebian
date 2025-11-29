@@ -662,6 +662,7 @@ chmod -R 0640 /var/log
 cd
 
 # LOCKDOWN
+find / -perm -4000 -o -perm -2000 -exec sudo chmod a-s {} \; 2>/dev/null
 find / -perm -4000 -exec chmod u-s {} \;
 find / -perm -4000 -exec chmod g-s {} \;
 find / -perm -2000 -exec chmod u-s {} \;
@@ -672,7 +673,6 @@ apt clean
 apt autopurge 
 apt purge "$(dpkg -l | grep '^rc' | awk '{print $2}')"
 rm -r /etc/ssh
-rm -r /usr/lib/ssh*
 chattr +i /etc/fstab
 chattr +i /etc/adduser.conf
 chattr +i /etc/group

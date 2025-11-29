@@ -483,7 +483,7 @@ cat > /etc/security/access.conf << 'EOF'
 EOF
 
 # GRUB
-sed -i 's|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT="slab_nomerge init_on_alloc=1 init_on_free=1 page_poison=1 random.trust_cpu=off random.trust_bootloader=off pti=on page_alloc.shuffle=1 spectre_v2=on spec_store_bypass_disable=on l1tf=full mds=full tsx=off tsx_async_abort=full retbleed=auto mitigations=auto vsyscall=none kvm.nx_huge_pages=force iommu=force intel_iommu=on amd_iommu=on efi=disable_early_pci_dma module.sig_enforce=1 lockdown=confidentiality quiet ipv6.disable=1 loglevel=0 apparmor=1 security=apparmor"|' /etc/default/grub
+sed -i 's|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT="slab_nomerge init_on_alloc=1 init_on_free=1 pti=on page_alloc.shuffle=1 random.trust_cpu=off random.trust_bootloader=off spectre_v2=on spec_store_bypass_disable=on l1tf=full mds=full tsx=off tsx_async_abort=full retbleed=auto vsyscall=none kvm.nx_huge_pages=force mitigations=auto quiet splash ipv6.disable=1 loglevel=0 apparmor=1 security=apparmor"|' /etc/default/grub
 update-grub
 chown root:root /etc/default/grub
 chmod 640 /etc/default/grub
@@ -537,162 +537,71 @@ sysctl --system
 
 # MODULES
 cat > /etc/modprobe.d/harden.conf << 'EOF'
-blacklist ax25
-install ax25 /bin/false
-blacklist can
-install can /bin/false
-blacklist dccp
-install dccp /bin/false
-blacklist decnet
-install decnet /bin/false
-blacklist econet
-install econet /bin/false
-blacklist ipx
-install ipx /bin/false
-blacklist netrom
-install netrom /bin/false
-blacklist p8022
-install p8022 /bin/false
-blacklist p8023
-install p8023 /bin/false
-blacklist psnap
-install psnap /bin/false
-blacklist rds
-install rds /bin/false
-blacklist rose
-install rose /bin/false
-blacklist sctp
-install sctp /bin/false
-blacklist tipc
-install tipc /bin/false
-blacklist x25
-install x25 /bin/false
-blacklist atm
-install atm /bin/false
-blacklist kvm
-install kvm /bin/false
-blacklist kvm_intel
-install kvm_intel /bin/false
-blacklist kvm_amd
-install kvm_amd /bin/false
-blacklist vboxdrv
-install vboxdrv /bin/false
-blacklist vboxnetadp
-install vboxnetadp /bin/false
-blacklist vboxnetflt
-install vboxnetflt /bin/false
-blacklist vmmon
-install vmmon /bin/false
-blacklist vmw_vmci
-install vmw_vmci /bin/false
-blacklist xen
-install xen /bin/false
-blacklist cramfs
-install cramfs /bin/false
-blacklist freevxfs
-install freevxfs /bin/false
-blacklist jffs2
-install jffs2 /bin/false
-blacklist hfs
-install hfs /bin/false
-blacklist hfsplus
-install hfsplus /bin/false
-blacklist squashfs
-install squashfs /bin/false
-blacklist udf
-install udf /bin/false
-blacklist gfs2
-install gfs2 /bin/false
-blacklist floppy
-install floppy /bin/false
-blacklist firewire-core
-install firewire-core /bin/false
-blacklist usb_f_ecm
-install usb_f_ecm /bin/false
-blacklist usb_f_rndis
-install usb_f_rndis /bin/false
 blacklist mac80211
-install mac80211 /bin/false
 blacklist cfg80211
-install cfg80211 /bin/false
 blacklist iwlwifi
-install iwlwifi /bin/false
 blacklist ath*
-install ath* /bin/false
 blacklist brcmsmac
-install brcmsmac /bin/false
 blacklist brcmfmac
-install brcmfmac /bin/false
 blacklist rtl8*
-install rtl8* /bin/false
 blacklist rtl88*
-install rtl88* /bin/false
 blacklist rt2800*
-install rt2800* /bin/false
 blacklist mt76*
-install mt76* /bin/false
 blacklist bluetooth
-install bluetooth /bin/false
 blacklist btusb
-install btusb /bin/false
 blacklist btrtl
-install btrtl /bin/false
 blacklist btintel
-install btintel /bin/false
 blacklist btbcm
-install btbcm /bin/false
 blacklist usb_storage
-install usb_storage /bin/false
 blacklist uas
-install uas /bin/false
+blacklist uvcvideo
+blacklist kvm
+blacklist kvm_intel
+blacklist kvm_amd
+blacklist vboxdrv
+blacklist vboxnetflt
+blacklist vboxnetadp
+blacklist vmw_vmci
+blacklist vmmon
+blacklist xen
 blacklist lp
-install lp /bin/false
 blacklist ppdev
-install ppdev /bin/false
 blacklist parport
-install parport /bin/false
+blacklist ax25
+blacklist decnet
+blacklist econet
+blacklist netrom
+blacklist rose
 blacklist hamradio
-install hamradio /bin/false
+blacklist dccp
+blacklist tipc
+blacklist sctp
+blacklist atm
+blacklist p8022
+blacklist p8023
 blacklist af_802154
-install af_802154 /bin/false
+blacklist firewire-core
 blacklist firewire-ohci
-install firewire-ohci /bin/false
 blacklist raw1394
-install raw1394 /bin/false
+blacklist udf
+blacklist hfs
+blacklist hfsplus
 blacklist jfs
-install jfs /bin/false
 blacklist reiserfs
-install reiserfs /bin/false
+blacklist cramfs
+blacklist freevxfs
 blacklist dvb*
-install dvb* /bin/false
 blacklist r820t
-install r820t /bin/false
 blacklist rtl283*
-install rtl283* /bin/false
 blacklist rtl2830
-install rtl2830 /bin/false
 blacklist rtl2832
-install rtl2832 /bin/false
 blacklist rtl2838
-install rtl2838 /bin/false
 blacklist joydev
-install joydev /bin/false
-blacklist mousedev
-install mousedev /bin/false
-blacklist tap
-install tap /bin/false
-blacklist tun
-install tun /bin/false
 blacklist video1394
-install video1394 /bin/false
 blacklist garmin_gps
-install garmin_gps /bin/false
 blacklist gnss
-install gnss /bin/false
 blacklist gnss-serial
-install gnss-serial /bin/false
 blacklist gnss-usb
-install gnss-usb /bin/false
 EOF
 
 # MOUNTS

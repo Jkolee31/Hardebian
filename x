@@ -766,7 +766,7 @@ EOF
 
 cat >/etc/security/limits.d/limits.conf <<'EOF'
 *     hard  core       0
-*     hard  nproc      200
+*     hard  nproc      2000
 *     hard  nofile     1024
 *     soft  nofile     512
 *     -     maxlogins  2
